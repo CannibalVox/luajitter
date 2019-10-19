@@ -5,6 +5,9 @@ void free_lua_value(lua_State *L, lua_value *value) {
         return;
 
     switch(value->valueType) {
+        case LUA_TSTRING:
+            chfree(value->data.pointerVal);
+            break;
         case LUA_TFUNCTION:
             if (value->dataArg.isCFunction)
                 break;
@@ -18,7 +21,7 @@ void free_lua_value(lua_State *L, lua_value *value) {
         default:
             break;
     }
-    free(value);
+    chfree(value);
 }
 
 void free_lua_return(lua_State *_L, lua_return retVal, _Bool freeValues) {
@@ -31,7 +34,7 @@ void free_lua_return(lua_State *_L, lua_return retVal, _Bool freeValues) {
         }
     }
 
-    free(retVal.values);
+    chfree(retVal.values);
 }
 
 void free_lua_args(lua_State *_L, lua_args args, _Bool freeValues) {
@@ -41,7 +44,7 @@ void free_lua_args(lua_State *_L, lua_args args, _Bool freeValues) {
         }
     }
 
-    free(args.values);
+    chfree(args.values);
 }
 
 lua_result convert_stack_value(lua_State *L) {
@@ -53,7 +56,7 @@ lua_result convert_stack_value(lua_State *L) {
         return retVal;
     }
 
-    retVal.value = malloc(sizeof(lua_value));
+    retVal.value = chmalloc(sizeof(lua_value));
     retVal.value->valueType = type;
     retVal.value->dataArg.isCFunction = 0;
     retVal.value->data.pointerVal = 0;
@@ -68,8 +71,13 @@ lua_result convert_stack_value(lua_State *L) {
             retVal.value->data.booleanVal = (_Bool)lua_toboolean(L, -1);
             break;
         case LUA_TSTRING:
-            retVal.value->data.pointerVal = (void*)lua_tolstring(L, -1, &(retVal.value->dataArg.stringLen));
-            break;
+            {
+                const char *luaStr = lua_tolstring(L, -1, &(retVal.value->dataArg.stringLen));
+                char *outStr = chmalloc(sizeof(char)*(retVal.value->dataArg.stringLen+1));
+                strncpy(outStr, luaStr, retVal.value->dataArg.stringLen);
+                retVal.value->data.pointerVal = (void*)outStr;
+                break;
+            }
         case LUA_TFUNCTION:
             {
                 if (lua_iscfunction(L, -1)) {
@@ -102,7 +110,7 @@ lua_return pop_lua_values(lua_State *_L, int valueCount) {
     lua_return retVal = {};
     retVal.valueCount = valueCount;
     retVal.err = NULL;
-    retVal.values = malloc(valueCount * sizeof(lua_value*));
+    retVal.values = chmalloc(valueCount * sizeof(lua_value*));
     for (int i = 0; i < valueCount; i++) {
         lua_result result = convert_stack_value(_L);
         if (result.err != NULL) {
@@ -111,7 +119,7 @@ lua_return pop_lua_values(lua_State *_L, int valueCount) {
             for (int j = 0; j < i; j++) {
                 free_lua_value(_L, retVal.values[j]);
             }
-            free(retVal.values);
+            chfree(retVal.values);
             retVal.values = NULL;
             retVal.valueCount = 0;
             return retVal;

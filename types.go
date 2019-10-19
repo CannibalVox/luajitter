@@ -12,10 +12,18 @@ import (
 	"unsafe"
 )
 
+func outlyingAllocs() int {
+	return int(C.outlying_allocs())
+}
+
+func clearAllocs() {
+	C.clear_allocs()
+}
+
 var luaValueSize C.ulonglong = C.ulonglong(unsafe.Sizeof(C.lua_value{}))
 
 func createLuaValue() *C.struct_lua_value {
-	return (*C.struct_lua_value)(C.malloc(luaValueSize))
+	return (*C.struct_lua_value)(C.chmalloc(luaValueSize))
 }
 
 func fromGoValue(vm *LuaState, value interface{}) (cValue *C.struct_lua_value, shouldFree bool, err error) {
@@ -67,6 +75,7 @@ func fromGoValue(vm *LuaState, value interface{}) (cValue *C.struct_lua_value, s
 		outValue.valueType = C.LUA_TSTRING
 		valData := (**C.char)(unsafe.Pointer(&outValue.data))
 		*valData = C.CString(v)
+		C.increment_allocs()
 		valDataArg := (*C.size_t)(unsafe.Pointer(&outValue.dataArg))
 		*valDataArg = C.size_t(len(v))
 		shouldFree = true
@@ -142,6 +151,15 @@ func (d *LocalLuaData) HomeVM() *LuaState {
 	return d.homeVM
 }
 
+func (d *LocalLuaData) Close() error {
+	if d.value != nil {
+		C.free_lua_value(d.homeVM._l, d.value)
+		d.value = nil
+	}
+
+	return nil
+}
+
 type LocalLuaFunction struct {
 	LocalLuaData
 }
@@ -177,6 +195,7 @@ func (f *LocalLuaFunction) Call(args ...interface{}) ([]interface{}, error) {
 			defer C.free_lua_error(retVal.err)
 			err = LuaErrorToGo(retVal.err)
 		} else if retVal.valueCount > 0 {
+			defer C.free_lua_return(f.HomeVM()._l, retVal, C._Bool(false))
 			valueList := (*[1 << 30]*C.struct_lua_value)(unsafe.Pointer(retVal.values))
 			for i := 0; i < int(retVal.valueCount); i++ {
 				value := valueList[i]

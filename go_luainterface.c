@@ -36,7 +36,7 @@ lua_err *create_walk_error(const char *fullPath, const char *path, const char *e
 
     const char *format = "Failed path walk in '%s' on '%.*s': %s";
     int length = strlen(format) - 8 + strlen(fullPath) + segLen + strlen(error) ;
-    char *fullError = malloc(sizeof(char)*(length+1));
+    char *fullError = chmalloc(sizeof(char)*(length+1));
     snprintf(fullError,length,format,fullPath,path,segLen,error);
     return create_lua_error(fullError);
 }

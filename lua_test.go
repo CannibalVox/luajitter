@@ -7,6 +7,7 @@ import (
 )
 
 func TestSimpleGlobal(t *testing.T) {
+	clearAllocs()
 	vm := NewState()
 	defer vm.Close()
 
@@ -20,9 +21,12 @@ func TestSimpleGlobal(t *testing.T) {
 	number, ok := val.(float64)
 	require.True(t, ok)
 	require.Equal(t, 2.0, number)
+
+	require.Equal(t, 0, outlyingAllocs())
 }
 
 func TestInitGlobal(t *testing.T) {
+	clearAllocs()
 	vm := NewState()
 	defer vm.Close()
 
@@ -43,6 +47,11 @@ func TestInitGlobal(t *testing.T) {
 	require.True(t, ok)
 	require.NotNil(t, table)
 	require.Equal(t, 5, int(table.value.valueType))
+
+	err = table.Close()
+	require.Nil(t, err)
+
+	require.Equal(t, 0, outlyingAllocs())
 }
 
 const fibo string = `
@@ -58,6 +67,7 @@ print(fib(5))
 `
 
 func TestDoStringAndCall(t *testing.T) {
+	clearAllocs()
 	vm := NewState()
 	defer vm.Close()
 
@@ -81,9 +91,15 @@ func TestDoStringAndCall(t *testing.T) {
 	outNumber, ok := out[0].(float64)
 	require.True(t, ok)
 	require.Equal(t, 13.0, outNumber)
+
+	err = fibFunc.Close()
+	require.Nil(t, err)
+
+	require.Equal(t, 0, outlyingAllocs())
 }
 
 func TestDoStringAndCallNil(t *testing.T) {
+	clearAllocs()
 	vm := NewState()
 	defer vm.Close()
 
@@ -103,18 +119,27 @@ func TestDoStringAndCallNil(t *testing.T) {
 	require.NotNil(t, out)
 	require.Len(t, out, 1)
 	require.Nil(t, out[0])
+
+	err = fibFunc.Close()
+	require.Nil(t, err)
+
+	require.Equal(t, 0, outlyingAllocs())
 }
 
 func TestDoStringWithError(t *testing.T) {
+	clearAllocs()
 	vm := NewState()
 	defer vm.Close()
 
 	err := vm.DoString(`error("some error")`)
 	require.NotNil(t, err)
 	require.Contains(t, err.Error(), "some error")
+
+	require.Equal(t, 0, outlyingAllocs())
 }
 
 func TestDoCallWithError(t *testing.T) {
+	clearAllocs()
 	vm := NewState()
 	defer vm.Close()
 
@@ -132,4 +157,9 @@ func TestDoCallWithError(t *testing.T) {
 	require.NotNil(t, err)
 	require.Len(t, out, 0)
 	require.Contains(t, err.Error(), "another error")
+
+	err = fibFunc.Close()
+	require.Nil(t, err)
+
+	require.Equal(t, 0, outlyingAllocs())
 }

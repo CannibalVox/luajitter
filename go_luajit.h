@@ -5,6 +5,7 @@
 #include <lauxlib.h>
 #include <lualib.h>
 #include <string.h>
+#include "go_diag_memory.h"
 #include "go_luaerrors.h"
 #include "go_luatypes.h"
 #include "go_luainterface.h"

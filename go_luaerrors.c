@@ -18,8 +18,8 @@ lua_err *get_lua_error(lua_State *_L, int errCode) {
 }
 
 lua_err *create_lua_error_from_luastr(const char *msg) {
-	lua_err *err = malloc(sizeof(lua_err));
-	char *newMessage = malloc(sizeof(char)*(strlen(msg)+1));
+	lua_err *err = chmalloc(sizeof(lua_err));
+	char *newMessage = chmalloc(sizeof(char)*(strlen(msg)+1));
 	strncpy(newMessage, msg, strlen(msg));
 	err->message = newMessage;
 
@@ -27,7 +27,7 @@ lua_err *create_lua_error_from_luastr(const char *msg) {
 }
 
 lua_err *create_lua_error(char *msg) {
-	lua_err *err = malloc(sizeof(lua_err));
+	lua_err *err = chmalloc(sizeof(lua_err));
 	err->message = msg;
 
 	return err;
@@ -36,7 +36,7 @@ lua_err *create_lua_error(char *msg) {
 void free_lua_error(lua_err *err) {
     if (err == NULL)
         return;
-	free(err->message);
+	chfree(err->message);
 	err->message = NULL;
-    free(err);
+    chfree(err);
 }
