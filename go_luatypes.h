@@ -1,3 +1,7 @@
+#define LUA_TUNLOADEDCALLBACK -1
+
+#define META_GOCALLBACK 1
+
 union lua_primitive {
     double numberVal;
     _Bool booleanVal;
@@ -9,6 +13,7 @@ typedef union lua_primitive lua_primitive;
 union lua_data_arg {
     _Bool isCFunction;
     size_t stringLen;
+    int userDataType;
 };
 typedef union lua_data_arg lua_data_arg;
 
@@ -44,4 +49,4 @@ extern void free_lua_args(lua_State *_L, lua_args args, _Bool freeValues);
 extern lua_result convert_stack_value(lua_State *L);
 extern lua_return pop_lua_values(lua_State *_L, int valueCount);
 extern lua_err *push_lua_value(lua_State *_L, lua_value *value);
-extern lua_err *push_lua_args(lua_State *_L, lua_args args);
+extern lua_err *push_lua_args(lua_State *_L, int valueCount, lua_value **values);

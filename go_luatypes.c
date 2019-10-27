@@ -47,6 +47,13 @@ void free_lua_args(lua_State *_L, lua_args args, _Bool freeValues) {
     chfree(args.values);
 }
 
+_Bool isUData(lua_State *_L, const char *name) {
+    luaL_getmetatable(_L, name);
+    int equal = lua_rawequal(_L, -1, -2);
+    lua_pop(_L, 1);
+    return (_Bool)equal;
+}
+
 lua_result convert_stack_value(lua_State *L) {
     int type = lua_type(L, -1);
     lua_result retVal = {};
@@ -88,6 +95,17 @@ lua_result convert_stack_value(lua_State *L) {
                 //Intentionally falling through- lua functions need to be stored as refs
             }
         case LUA_TUSERDATA:
+            {
+                //For UData's we should try to provide the type to give golang an easier time
+                retVal.value->dataArg.userDataType = 0;
+                int gotMeta = lua_getmetatable(L, -1);
+                if (gotMeta) {
+                    if (isUData(L, MT_GOCALLBACK))
+                        retVal.value->dataArg.userDataType = META_GOCALLBACK;
+                }
+
+                //Intentional fallthrough
+            }
         case LUA_TTHREAD:
         case LUA_TLIGHTUSERDATA:
         case LUA_TTABLE:
@@ -138,6 +156,15 @@ lua_err *push_lua_value(lua_State *_L, lua_value *value) {
     }
     
     switch(value->valueType) {
+        case LUA_TUNLOADEDCALLBACK:
+            {
+                //This came from golang, it's a cgo handle for a go function
+                void **userData = (void**)lua_newuserdata(_L, sizeof(void*));
+                *userData = value->data.pointerVal;
+                luaL_getmetatable(_L, MT_GOCALLBACK);
+                lua_setmetatable(_L, -2);
+                break;
+            }
         case LUA_TNUMBER:
             lua_pushnumber(_L, (lua_Number)value->data.numberVal);
             break;
@@ -168,10 +195,10 @@ lua_err *push_lua_value(lua_State *_L, lua_value *value) {
     return NULL;
 }
 
-lua_err *push_lua_args(lua_State *_L, lua_args args) {
+lua_err *push_lua_args(lua_State *_L, int valueCount, lua_value **values) {
     int alreadyPushed = 0;
-    for (int i = 0; i < args.valueCount; i++) {
-        lua_err *err = push_lua_value(_L, args.values[i]);
+    for (int i = 0; i < valueCount; i++) {
+        lua_err *err = push_lua_value(_L, values[i]);
         if (err != NULL) {
             if (alreadyPushed > 0)
                 lua_pop(_L, alreadyPushed);

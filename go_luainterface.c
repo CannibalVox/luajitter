@@ -8,7 +8,7 @@ lua_return call_function(lua_State *_L, lua_value *func, lua_args args) {
         retVal.err = err;
         return retVal;
     }
-    err = push_lua_args(_L, args);
+    err = push_lua_args(_L, args.valueCount, args.values);
     if (err != NULL) {
         retVal.err = err;
         return retVal;
@@ -37,7 +37,7 @@ lua_err *create_walk_error(const char *fullPath, const char *path, const char *e
     const char *format = "Failed path walk in '%s' on '%.*s': %s";
     int length = strlen(format) - 8 + strlen(fullPath) + segLen + strlen(error) ;
     char *fullError = chmalloc(sizeof(char)*(length+1));
-    snprintf(fullError,length,format,fullPath,path,segLen,error);
+    snprintf(fullError,length,format,fullPath,segLen,path,error);
     return create_lua_error(fullError);
 }
 
@@ -118,7 +118,8 @@ lua_err *set_global(lua_State *_L, const char *path, lua_value *value, _Bool fil
         return err;
     lua_result result = walk_table_path(_L, LUA_GLOBALSINDEX, path, set_global_handler, fillIntermediateTables);
     lua_pop(_L, 1);
-    if (result.value)
+    if (result.value) {
         free_lua_value(_L, result.value);
+    }
     return result.err;
 }

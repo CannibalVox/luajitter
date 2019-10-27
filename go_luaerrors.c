@@ -40,3 +40,11 @@ void free_lua_error(lua_err *err) {
 	err->message = NULL;
     chfree(err);
 }
+
+int raise_lua_error(lua_State *_L, lua_err *err) {
+    if (err == NULL)
+        return 0;
+    lua_pushstring(_L, err->message);
+    free_lua_error(err);
+    return lua_error(_L);
+}

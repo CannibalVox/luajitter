@@ -9,8 +9,11 @@ import "C"
 
 import (
 	"errors"
+	"github.com/baohavan/go-pointer"
 	"unsafe"
 )
+
+type LuaCallback func([]interface{}) ([]interface{}, error)
 
 func outlyingAllocs() int {
 	return int(C.outlying_allocs())
@@ -21,6 +24,7 @@ func clearAllocs() {
 }
 
 var luaValueSize C.ulonglong = C.ulonglong(unsafe.Sizeof(C.lua_value{}))
+var luaReturnSize C.ulonglong = C.ulonglong(unsafe.Sizeof(C.lua_return{}))
 
 func createLuaValue() *C.struct_lua_value {
 	return (*C.struct_lua_value)(C.chmalloc(luaValueSize))
@@ -51,7 +55,7 @@ func fromGoValue(vm *LuaState, value interface{}) (cValue *C.struct_lua_value, s
 		case uint:
 			castV = float64(innerV)
 		case float64:
-			castV = float64(innerV)
+			castV = innerV
 		case float32:
 			castV = float64(innerV)
 		}
@@ -60,16 +64,12 @@ func fromGoValue(vm *LuaState, value interface{}) (cValue *C.struct_lua_value, s
 		valData := (*C.double)(unsafe.Pointer(&outValue.data))
 		*valData = C.double(castV)
 		shouldFree = true
-
-		break
 	case bool:
 		outValue = createLuaValue()
 		outValue.valueType = C.LUA_TBOOLEAN
 		valData := (*C._Bool)(unsafe.Pointer(&outValue.data))
 		*valData = C._Bool(v)
 		shouldFree = true
-
-		break
 	case string:
 		outValue = createLuaValue()
 		outValue.valueType = C.LUA_TSTRING
@@ -79,14 +79,23 @@ func fromGoValue(vm *LuaState, value interface{}) (cValue *C.struct_lua_value, s
 		valDataArg := (*C.size_t)(unsafe.Pointer(&outValue.dataArg))
 		*valDataArg = C.size_t(len(v))
 		shouldFree = true
-
-		break
 	case *LocalLuaFunction, *LocalLuaData:
 		castV := v.(*LocalLuaData)
 		if vm != castV.HomeVM() {
-			return nil, false, errors.New("Attempt to use local data in wrong VM")
+			return nil, false, errors.New("attempt to use local data in wrong VM")
 		}
 		outValue = castV.LuaValue()
+	case func([]interface{}) ([]interface{}, error):
+	case LuaCallback:
+		outValue = createLuaValue()
+		outValue.valueType = C.LUA_TUNLOADEDCALLBACK
+		ptr := pointer.Save(v)
+
+		valData := (*unsafe.Pointer)(unsafe.Pointer(&outValue.data))
+		*valData = ptr
+		shouldFree = true
+	default:
+		return nil, false, errors.New("cannot marshal unknown type into lua")
 	}
 
 	return outValue, shouldFree, nil
@@ -124,18 +133,13 @@ func buildGoValue(vm *LuaState, value *C.struct_lua_value) interface{} {
 			}
 		}
 
-		return &LocalLuaData{
-			value:  value,
-			homeVM: vm,
-		}
+		fallthrough
 	default:
 		return &LocalLuaData{
 			value:  value,
 			homeVM: vm,
 		}
 	}
-
-	return nil
 }
 
 type LocalLuaData struct {

@@ -7,34 +7,26 @@ package luajitter
 */
 import "C"
 import (
-	"errors"
 	"unsafe"
 )
 
-func LuaErrorToGo(err *C.lua_err) error {
-	if err == nil {
-		return nil
-	}
-	if err == C.INVALID_ERROR {
-		panic("INVALID ERROR RAISED FROM LUA")
-	}
-	outErr := errors.New(C.GoString(err.message))
-	return outErr
-}
+var vmMap = make(map[*C.lua_State]*LuaState)
 
 type LuaState struct {
 	_l *C.lua_State
 }
 
 func NewState() *LuaState {
-	vm := C.luaL_newstate()
-	C.luaL_openlibs(vm)
-	return &LuaState{
+	vm := C.new_luajit_state()
+	state := &LuaState{
 		_l: vm,
 	}
+	vmMap[vm] = state
+	return state
 }
 
 func (s *LuaState) Close() error {
+	delete(vmMap, s._l)
 	C.lua_close(s._l)
 	return nil
 }
