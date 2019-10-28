@@ -85,8 +85,7 @@ func fromGoValue(vm *LuaState, value interface{}) (cValue *C.struct_lua_value, s
 			return nil, false, errors.New("attempt to use local data in wrong VM")
 		}
 		outValue = castV.LuaValue()
-	case func([]interface{}) ([]interface{}, error):
-	case LuaCallback:
+	case func([]interface{}) ([]interface{}, error), LuaCallback:
 		outValue = createLuaValue()
 		outValue.valueType = C.LUA_TUNLOADEDCALLBACK
 		ptr := pointer.Save(v)
