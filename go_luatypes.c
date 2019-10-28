@@ -57,6 +57,8 @@ _Bool isUData(lua_State *_L, const char *name) {
 lua_result convert_stack_value(lua_State *L) {
     int type = lua_type(L, -1);
     lua_result retVal = {};
+    retVal.err = NULL;
+    retVal.value = NULL;
 
     if (type == LUA_TNIL) {
         lua_pop(L, 1);
@@ -69,7 +71,7 @@ lua_result convert_stack_value(lua_State *L) {
     retVal.value->data.pointerVal = 0;
     retVal.err = NULL;
     _Bool needsPop = 1;
-    
+
     switch(type) {
         case LUA_TNUMBER:
             retVal.value->data.numberVal = (double)lua_tonumber(L, -1);
@@ -96,12 +98,15 @@ lua_result convert_stack_value(lua_State *L) {
             }
         case LUA_TUSERDATA:
             {
-                //For UData's we should try to provide the type to give golang an easier time
-                retVal.value->dataArg.userDataType = 0;
-                int gotMeta = lua_getmetatable(L, -1);
-                if (gotMeta) {
-                    if (isUData(L, MT_GOCALLBACK))
-                        retVal.value->dataArg.userDataType = META_GOCALLBACK;
+                if (type == LUA_TUSERDATA) {
+                    //For UData's we should try to provide the type to give golang an easier time
+                    retVal.value->dataArg.userDataType = 0;
+                    int gotMeta = lua_getmetatable(L, -1);
+                    if (gotMeta) {
+                        if (isUData(L, MT_GOCALLBACK))
+                            retVal.value->dataArg.userDataType = META_GOCALLBACK;
+                        lua_pop(L, 1);
+                    }
                 }
 
                 //Intentional fallthrough

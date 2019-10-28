@@ -2,6 +2,7 @@ package luajitter
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -303,10 +304,102 @@ end
 	require.Nil(err)
 
 	require.Len(callbackArgs, 4)
-	require.Equal(5, callbackArgs[0])
+	require.Equal(5.0, callbackArgs[0])
 	require.Equal("bleh", callbackArgs[1])
 	require.Nil(callbackArgs[2])
 	require.IsType(&LocalLuaData{}, callbackArgs[3])
 
 	require.Equal(0, outlyingAllocs())
+}
+
+func BenchmarkFib35(b *testing.B) {
+	clearAllocs()
+	vm := NewState()
+	defer vm.Close()
+
+	err := vm.DoString(`
+function fib(val)
+	if val < 2 then 
+		return val
+	end
+
+	return fib(val-2) + fib(val-1)
+end
+`)
+	if err != nil {
+		panic(err)
+	}
+
+	funcObj, err := vm.GetGlobal("fib")
+	if err != nil {
+		panic(err)
+	}
+
+	f := funcObj.(*LocalLuaFunction)
+	out, err := f.Call(35)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(out[0])
+}
+
+var cbCount = 0
+
+func AddCallback(args []interface{}) ([]interface{}, error) {
+	cbCount++
+	if len(args) != 2 {
+		return nil, errors.New("incorrect arguments passed to Add")
+	}
+
+	l, ok := args[0].(float64)
+	if !ok {
+		return nil, errors.New("argument 1 to Add was not a number")
+	}
+	r, ok := args[1].(float64)
+	if !ok {
+		return nil, errors.New("argument 2 to Add was not a number")
+	}
+
+	return []interface{}{
+		l + r,
+	}, nil
+}
+
+func BenchmarkCallbackFib35(b *testing.B) {
+	clearAllocs()
+	vm := NewState()
+	defer vm.Close()
+
+	err := vm.SetGlobal("_Add", LuaCallback(AddCallback))
+	if err != nil {
+		panic(err)
+	}
+
+	err = vm.DoString(`
+function fib(val)
+	if val < 2 then 
+		return val
+	end
+
+	return _Add(fib(val-2), fib(val-1))
+end
+`)
+	if err != nil {
+		panic(err)
+	}
+
+	funcObj, err := vm.GetGlobal("fib")
+	if err != nil {
+		panic(err)
+	}
+
+	b.ResetTimer()
+
+	f := funcObj.(*LocalLuaFunction)
+	out, err := f.Call(35)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(cbCount)
+	fmt.Println(out[0])
 }

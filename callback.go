@@ -28,14 +28,14 @@ func callbackGoFunction(_L *C.lua_State, handle unsafe.Pointer, args C.lua_args)
 		return retVal
 	}
 
-	goArgs := []interface{}{}
 	state := vmMap[_L]
 	argCount := int(args.valueCount)
+	goArgs := make([]interface{}, argCount)
 	argsList := (*[1 << 30]*C.struct_lua_value)(unsafe.Pointer(args.values))
 
 	for i := 0; i < argCount; i++ {
 		singleArg := argsList[i]
-		goArgs = append(goArgs, buildGoValue(state, singleArg))
+		goArgs[i] = buildGoValue(state, singleArg)
 	}
 
 	retVals, err := goFunction(goArgs)

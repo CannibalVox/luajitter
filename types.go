@@ -173,9 +173,9 @@ func (f *LocalLuaFunction) Call(args ...interface{}) ([]interface{}, error) {
 		values:     nil,
 	}
 
-	argsIn := []*C.struct_lua_value{}
+	argsIn := make([]*C.struct_lua_value, len(args))
 	var err error
-	for _, arg := range args {
+	for ind, arg := range args {
 		val, shouldFree, err := fromGoValue(f.HomeVM(), arg)
 		if shouldFree {
 			defer C.free_lua_value(f.HomeVM()._l, val)
@@ -184,7 +184,7 @@ func (f *LocalLuaFunction) Call(args ...interface{}) ([]interface{}, error) {
 			break
 		}
 
-		argsIn = append(argsIn, val)
+		argsIn[ind] = val
 	}
 
 	if len(argsIn) > 0 {
@@ -198,11 +198,12 @@ func (f *LocalLuaFunction) Call(args ...interface{}) ([]interface{}, error) {
 			defer C.free_lua_error(retVal.err)
 			err = LuaErrorToGo(retVal.err)
 		} else if retVal.valueCount > 0 {
+			allRetVals = make([]interface{}, int(retVal.valueCount))
 			defer C.free_lua_return(f.HomeVM()._l, retVal, C._Bool(false))
 			valueList := (*[1 << 30]*C.struct_lua_value)(unsafe.Pointer(retVal.values))
 			for i := 0; i < int(retVal.valueCount); i++ {
 				value := valueList[i]
-				allRetVals = append(allRetVals, buildGoValue(f.HomeVM(), value))
+				allRetVals[i] = buildGoValue(f.HomeVM(), value)
 			}
 		}
 	}
