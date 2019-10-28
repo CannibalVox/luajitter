@@ -20,7 +20,7 @@ lua_err *get_lua_error(lua_State *_L, int errCode) {
 lua_err *create_lua_error_from_luastr(const char *msg) {
 	lua_err *err = chmalloc(sizeof(lua_err));
 	char *newMessage = chmalloc(sizeof(char)*(strlen(msg)+1));
-	strncpy(newMessage, msg, strlen(msg));
+	strncpy(newMessage, msg, strlen(msg)+1);
 	err->message = newMessage;
 
 	return err;

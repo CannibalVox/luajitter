@@ -8,7 +8,7 @@ lua_return call_function(lua_State *_L, lua_value *func, lua_args args) {
         retVal.err = err;
         return retVal;
     }
-    err = push_lua_args(_L, args.valueCount, args.values);
+    err = push_lua_args(_L, args);
     if (err != NULL) {
         retVal.err = err;
         return retVal;

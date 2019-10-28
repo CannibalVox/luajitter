@@ -81,7 +81,7 @@ lua_result convert_stack_value(lua_State *L) {
             {
                 const char *luaStr = lua_tolstring(L, -1, &(retVal.value->dataArg.stringLen));
                 char *outStr = chmalloc(sizeof(char)*(retVal.value->dataArg.stringLen+1));
-                strncpy(outStr, luaStr, retVal.value->dataArg.stringLen);
+                strncpy(outStr, luaStr, retVal.value->dataArg.stringLen+1);
                 retVal.value->data.pointerVal = (void*)outStr;
                 break;
             }
@@ -135,7 +135,7 @@ lua_return pop_lua_values(lua_State *_L, int valueCount) {
             //Just return error- free all allocations made until this point
             retVal.err = result.err;
             for (int j = 0; j < i; j++) {
-                free_lua_value(_L, retVal.values[j]);
+                free_lua_value(_L, retVal.values[valueCount-j-1]);
             }
             chfree(retVal.values);
             retVal.values = NULL;
@@ -143,7 +143,7 @@ lua_return pop_lua_values(lua_State *_L, int valueCount) {
             return retVal;
         }
 
-        retVal.values[i] = result.value;
+        retVal.values[valueCount-i-1] = result.value;
     }
 
     return retVal;
@@ -195,10 +195,10 @@ lua_err *push_lua_value(lua_State *_L, lua_value *value) {
     return NULL;
 }
 
-lua_err *push_lua_args(lua_State *_L, int valueCount, lua_value **values) {
+lua_err *push_lua_args(lua_State *_L, lua_args args) {
     int alreadyPushed = 0;
-    for (int i = 0; i < valueCount; i++) {
-        lua_err *err = push_lua_value(_L, values[i]);
+    for (int i = 0; i < args.valueCount; i++) {
+        lua_err *err = push_lua_value(_L, args.values[args.valueCount-i-1]);
         if (err != NULL) {
             if (alreadyPushed > 0)
                 lua_pop(_L, alreadyPushed);
@@ -209,3 +209,19 @@ lua_err *push_lua_args(lua_State *_L, int valueCount, lua_value **values) {
 
     return NULL;
 }
+
+lua_err *push_lua_return(lua_State *_L, lua_return retVal) {
+    int alreadyPushed = 0;
+    for (int i = 0; i < retVal.valueCount; i++) {
+        lua_err *err = push_lua_value(_L, retVal.values[i]);
+        if (err != NULL) {
+            if (alreadyPushed > 0)
+                lua_pop(_L, alreadyPushed);
+            return err;
+        }
+        alreadyPushed++;
+    }
+
+    return NULL;
+}
+

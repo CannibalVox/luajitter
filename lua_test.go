@@ -103,6 +103,44 @@ func TestDoStringAndCall(t *testing.T) {
 	require.Equal(t, 0, outlyingAllocs())
 }
 
+const multiRet string = `
+function multiCall()
+	return 9,"testing",false
+end
+`
+
+func TestMultiRetCall(t *testing.T) {
+	clearAllocs()
+	vm := NewState()
+	defer closeVM(t, vm)
+
+	require := require.New(t)
+
+	err := vm.DoString(multiRet)
+	require.Nil(err)
+
+	val, err := vm.GetGlobal("multiCall")
+	require.Nil(err)
+	require.NotNil(val)
+
+	multiCallFunc, ok := val.(*LocalLuaFunction)
+	require.True(ok)
+	require.NotNil(multiCallFunc)
+
+	out, err := multiCallFunc.Call()
+	require.Nil(err)
+	require.NotNil(out)
+	require.Len(out, 3)
+	require.Equal(9.0, out[0])
+	require.Equal("testing", out[1])
+	require.Equal(false, out[2])
+
+	err = multiCallFunc.Close()
+	require.Nil(err)
+
+	require.Equal(0, outlyingAllocs())
+}
+
 func TestDoStringAndCallNil(t *testing.T) {
 	clearAllocs()
 	vm := NewState()
@@ -170,13 +208,65 @@ func TestDoCallWithError(t *testing.T) {
 	require.Equal(t, 0, outlyingAllocs())
 }
 
+var callbackArgs []interface{}
+
+func SomeErrorCallback(args []interface{}) ([]interface{}, error) {
+	callbackArgs = args
+	return []interface{}{
+		"test",
+		5,
+		true,
+		SomeErrorCallback,
+	}, errors.New("WOW ERROR")
+}
+func TestDoErrorCallback(t *testing.T) {
+	require := require.New(t)
+	clearAllocs()
+	vm := NewState()
+	defer closeVM(t, vm)
+
+	err := vm.InitGlobal("test.error_callback", LuaCallback(SomeErrorCallback))
+	require.Nil(err)
+
+	err = vm.DoString(`
+function doErrorCallback()
+	return test.error_callback(5, "bleh", nil, {})
+end
+`)
+	require.Nil(err)
+
+	errorFuncObj, err := vm.GetGlobal("doErrorCallback")
+	require.Nil(err)
+	require.NotNil(errorFuncObj)
+
+	errorF, ok := errorFuncObj.(*LocalLuaFunction)
+	require.True(ok)
+	require.NotNil(errorF)
+
+	retVals, err := errorF.Call()
+	require.NotNil(retVals)
+	require.Len(retVals, 0)
+
+	require.NotNil(err)
+	require.Equal("WOW ERROR", err.Error())
+
+	require.Len(callbackArgs, 4)
+	require.Equal(5.0, callbackArgs[0])
+	require.Equal("bleh", callbackArgs[1])
+	require.Nil(callbackArgs[2])
+	require.IsType(&LocalLuaData{}, callbackArgs[3])
+
+	require.Equal(0, outlyingAllocs())
+}
+
 func SomeCallback(args []interface{}) ([]interface{}, error) {
+	callbackArgs = args
 	return []interface{}{
 		"test",
 		5,
 		true,
 		SomeCallback,
-	}, errors.New("bleh")
+	}, nil
 }
 func TestDoCallback(t *testing.T) {
 	require := require.New(t)
@@ -187,8 +277,36 @@ func TestDoCallback(t *testing.T) {
 	err := vm.InitGlobal("test.callback", LuaCallback(SomeCallback))
 	require.Nil(err)
 
-	err = vm.DoString("test.callback(5, \"bleh\", nil, {})")
+	err = vm.DoString(`
+function doCallback()
+	return test.callback(5, "bleh", nil, {})
+end
+`)
 	require.Nil(err)
+
+	funcObj, err := vm.GetGlobal("doCallback")
+	require.Nil(err)
+	require.NotNil(funcObj)
+
+	f, ok := funcObj.(*LocalLuaFunction)
+	require.True(ok)
+	require.NotNil(f)
+
+	retVals, err := f.Call()
+	require.NotNil(retVals)
+	require.Len(retVals, 4)
+	require.Equal("test", retVals[0])
+	require.Equal(5.0, retVals[1])
+	require.Equal(true, retVals[2])
+	require.IsType(&LocalLuaData{}, retVals[3])
+
+	require.Nil(err)
+
+	require.Len(callbackArgs, 4)
+	require.Equal(5, callbackArgs[0])
+	require.Equal("bleh", callbackArgs[1])
+	require.Nil(callbackArgs[2])
+	require.IsType(&LocalLuaData{}, callbackArgs[3])
 
 	require.Equal(0, outlyingAllocs())
 }

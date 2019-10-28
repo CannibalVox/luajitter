@@ -31,5 +31,6 @@ func GoErrorToLua(err error) *C.lua_err {
 
 	outErr := (*C.struct_lua_err)(C.chmalloc(luaErrSize))
 	outErr.message = C.CString(err.Error())
+	C.increment_allocs()
 	return outErr
 }

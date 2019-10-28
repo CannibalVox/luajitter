@@ -49,4 +49,5 @@ extern void free_lua_args(lua_State *_L, lua_args args, _Bool freeValues);
 extern lua_result convert_stack_value(lua_State *L);
 extern lua_return pop_lua_values(lua_State *_L, int valueCount);
 extern lua_err *push_lua_value(lua_State *_L, lua_value *value);
-extern lua_err *push_lua_args(lua_State *_L, int valueCount, lua_value **values);
+extern lua_err *push_lua_args(lua_State *_L, lua_args args);
+extern lua_err *push_lua_return(lua_State *_L, lua_return retVal);

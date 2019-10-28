@@ -35,12 +35,13 @@ int execute_go_callback(lua_State *_L) {
         return raise_lua_error(_L, err);
     }
 
-    err = push_lua_args(_L, goReturn->valueCount, goReturn->values);
+    err = push_lua_return(_L, *goReturn);
+    int valueCount = goReturn->valueCount;
     free_lua_return(_L, *goReturn, 1);
     chfree(goReturn);
     if (err != NULL) {
         return raise_lua_error(_L, err);
     }
 
-    return goReturn->valueCount;
+    return valueCount;
 }
