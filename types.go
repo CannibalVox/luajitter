@@ -30,12 +30,11 @@ func createLuaValue() *C.struct_lua_value {
 	return (*C.struct_lua_value)(C.chmalloc(luaValueSize))
 }
 
-func fromGoValue(vm *LuaState, value interface{}) (cValue *C.struct_lua_value, shouldFree bool, err error) {
+func fromGoValue(vm *LuaState, value interface{}, outValue *C.struct_lua_value) (cValue *C.struct_lua_value, shouldFree bool, err error) {
 	if value == nil {
 		return nil, false, nil
 	}
 
-	var outValue *C.struct_lua_value
 	shouldFree = false
 
 	switch v := value.(type) {
@@ -59,19 +58,27 @@ func fromGoValue(vm *LuaState, value interface{}) (cValue *C.struct_lua_value, s
 		case float32:
 			castV = float64(innerV)
 		}
-		outValue = createLuaValue()
+		if outValue == nil {
+			outValue = createLuaValue()
+		}
 		outValue.valueType = C.LUA_TNUMBER
 		valData := (*C.double)(unsafe.Pointer(&outValue.data))
 		*valData = C.double(castV)
 		shouldFree = true
 	case bool:
-		outValue = createLuaValue()
+		if outValue == nil {
+			outValue = createLuaValue()
+		}
+
 		outValue.valueType = C.LUA_TBOOLEAN
 		valData := (*C._Bool)(unsafe.Pointer(&outValue.data))
 		*valData = C._Bool(v)
 		shouldFree = true
 	case string:
-		outValue = createLuaValue()
+		if outValue == nil {
+			outValue = createLuaValue()
+		}
+
 		outValue.valueType = C.LUA_TSTRING
 		valData := (**C.char)(unsafe.Pointer(&outValue.data))
 		*valData = C.CString(v)
@@ -81,12 +88,18 @@ func fromGoValue(vm *LuaState, value interface{}) (cValue *C.struct_lua_value, s
 		shouldFree = true
 	case *LocalLuaFunction, *LocalLuaData:
 		castV := v.(*LocalLuaData)
+		if outValue != nil {
+			return outValue, false, errors.New("incorrectly-allocated ")
+		}
 		if vm != castV.HomeVM() {
 			return nil, false, errors.New("attempt to use local data in wrong VM")
 		}
 		outValue = castV.LuaValue()
 	case func([]interface{}) ([]interface{}, error), LuaCallback:
-		outValue = createLuaValue()
+		if outValue == nil {
+			outValue = createLuaValue()
+		}
+
 		outValue.valueType = C.LUA_TUNLOADEDCALLBACK
 		ptr := pointer.Save(v)
 
@@ -100,45 +113,54 @@ func fromGoValue(vm *LuaState, value interface{}) (cValue *C.struct_lua_value, s
 	return outValue, shouldFree, nil
 }
 
-func buildGoValue(vm *LuaState, value *C.struct_lua_value) interface{} {
-	if value == nil {
-		return nil
-	}
+func buildGoValues(vm *LuaState, count int, values *[1 << 30]*C.struct_lua_value) []interface{} {
+	goValues := make([]interface{}, count)
+	for i := 0; i < count; i++ {
+		value := values[i]
+		if value == nil {
+			goValues[i] = nil
+			continue
+		}
 
-	switch value.valueType {
-	case C.LUA_TNUMBER:
-		union := (*C.double)(unsafe.Pointer(&value.data))
-		retVal := float64(*union)
-		C.free_lua_value(vm._l, value)
-		return retVal
-	case C.LUA_TBOOLEAN:
-		union := (*C._Bool)(unsafe.Pointer(&value.data))
-		retVal := bool(*union == (C._Bool)(true))
-		C.free_lua_value(vm._l, value)
-		return retVal
-	case C.LUA_TSTRING:
-		union := (**C.char)(unsafe.Pointer(&(value.data)))
-		retVal := C.GoString(*union)
-		C.free_lua_value(vm._l, value)
-		return retVal
-	case C.LUA_TFUNCTION:
-		isCFunction := (*C._Bool)(unsafe.Pointer(&value.dataArg))
-		if *isCFunction == (C._Bool)(false) {
-			return &LocalLuaFunction{
-				LocalLuaData{
-					value:  value,
-					homeVM: vm,
-				},
+		switch value.valueType {
+		case C.LUA_TNUMBER:
+			union := (*C.double)(unsafe.Pointer(&value.data))
+			goValues[i] = float64(*union)
+			continue
+		case C.LUA_TBOOLEAN:
+			union := (*C._Bool)(unsafe.Pointer(&value.data))
+			goValues[i] = bool(*union == (C._Bool)(true))
+			continue
+		case C.LUA_TSTRING:
+			union := (**C.char)(unsafe.Pointer(&(value.data)))
+			goValues[i] = C.GoString(*union)
+			continue
+		case C.LUA_TFUNCTION:
+			isCFunction := (*C._Bool)(unsafe.Pointer(&value.dataArg))
+			if *isCFunction == (C._Bool)(false) {
+				//NULL out the index to stop it from being freed
+				values[i] = nil
+				goValues[i] = &LocalLuaFunction{
+					LocalLuaData{
+						value:  value,
+						homeVM: vm,
+					},
+				}
+				continue
+			}
+
+			fallthrough
+		default:
+			//NULL out the index to stop it from being freed
+			values[i] = nil
+			goValues[i] = &LocalLuaData{
+				value:  value,
+				homeVM: vm,
 			}
 		}
-
-		fallthrough
-	default:
-		return &LocalLuaData{
-			value:  value,
-			homeVM: vm,
-		}
 	}
+
+	return goValues
 }
 
 type LocalLuaData struct {
@@ -176,7 +198,7 @@ func (f *LocalLuaFunction) Call(args ...interface{}) ([]interface{}, error) {
 	argsIn := make([]*C.struct_lua_value, len(args))
 	var err error
 	for ind, arg := range args {
-		val, shouldFree, err := fromGoValue(f.HomeVM(), arg)
+		val, shouldFree, err := fromGoValue(f.HomeVM(), arg, nil)
 		if shouldFree {
 			defer C.free_lua_value(f.HomeVM()._l, val)
 		}
@@ -191,20 +213,16 @@ func (f *LocalLuaFunction) Call(args ...interface{}) ([]interface{}, error) {
 		luaArgs.values = &argsIn[0]
 	}
 
-	allRetVals := []interface{}{}
+	var allRetVals []interface{}
 	if err == nil {
 		retVal := C.call_function(f.HomeVM()._l, f.LuaValue(), luaArgs)
 		if retVal.err != nil {
 			defer C.free_lua_error(retVal.err)
 			err = LuaErrorToGo(retVal.err)
 		} else if retVal.valueCount > 0 {
-			allRetVals = make([]interface{}, int(retVal.valueCount))
-			defer C.free_lua_return(f.HomeVM()._l, retVal, C._Bool(false))
+			defer C.free_lua_return(f.HomeVM()._l, retVal, C._Bool(true))
 			valueList := (*[1 << 30]*C.struct_lua_value)(unsafe.Pointer(retVal.values))
-			for i := 0; i < int(retVal.valueCount); i++ {
-				value := valueList[i]
-				allRetVals[i] = buildGoValue(f.HomeVM(), value)
-			}
+			allRetVals = buildGoValues(f.HomeVM(), int(retVal.valueCount), valueList)
 		}
 	}
 

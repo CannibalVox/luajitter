@@ -51,7 +51,10 @@ func (s *LuaState) getGlobal(path string, createIntermediateTables bool) (interf
 	err := LuaErrorToGo(cResult.err)
 	var result interface{}
 	if cResult.value != nil {
-		result = buildGoValue(s, cResult.value)
+		vals := buildGoValues(s, 1, (*[1 << 30]*C.struct_lua_value)(unsafe.Pointer(&cResult.value)))
+		if len(vals) > 0 {
+			result = vals[0]
+		}
 	}
 
 	return result, err
@@ -65,7 +68,7 @@ func (s *LuaState) setGlobal(path string, value interface{}, createIntermediateT
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
 
-	cValue, shouldFree, err := fromGoValue(s, value)
+	cValue, shouldFree, err := fromGoValue(s, value, nil)
 	if shouldFree {
 		defer C.free_lua_value(s._l, cValue)
 	}

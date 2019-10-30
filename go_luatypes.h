@@ -51,3 +51,4 @@ extern lua_return pop_lua_values(lua_State *_L, int valueCount);
 extern lua_err *push_lua_value(lua_State *_L, lua_value *value);
 extern lua_err *push_lua_args(lua_State *_L, lua_args args);
 extern lua_err *push_lua_return(lua_State *_L, lua_return retVal);
+extern lua_value **build_values(int slots, int allocs);

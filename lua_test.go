@@ -245,7 +245,6 @@ end
 	require.NotNil(errorF)
 
 	retVals, err := errorF.Call()
-	require.NotNil(retVals)
 	require.Len(retVals, 0)
 
 	require.NotNil(err)

@@ -7,7 +7,6 @@ package luajitter
 */
 import "C"
 import (
-	"errors"
 	"github.com/baohavan/go-pointer"
 	"unsafe"
 )
@@ -19,49 +18,70 @@ func releaseCGOHandle(handle unsafe.Pointer) *C.lua_err {
 }
 
 //export callbackGoFunction
-func callbackGoFunction(_L *C.lua_State, handle unsafe.Pointer, args C.lua_args) *C.lua_return {
-	retVal := (*C.struct_lua_return)(C.chmalloc(luaReturnSize))
+func callbackGoFunction(_L *C.lua_State, handle unsafe.Pointer, args C.lua_args, ret *C.lua_return) {
 	handlePtr := pointer.Restore(handle)
 	goFunction, ok := handlePtr.(LuaCallback)
 	if !ok {
-		retVal.err = GoErrorToLua(errors.New("attempted to call go function with non-callback object"))
-		return retVal
+		ret.err.message = C.CString("attempted to call go function with non-callback object")
+		return
 	}
 
 	state := vmMap[_L]
 	argCount := int(args.valueCount)
-	goArgs := make([]interface{}, argCount)
 	argsList := (*[1 << 30]*C.struct_lua_value)(unsafe.Pointer(args.values))
-
-	for i := 0; i < argCount; i++ {
-		singleArg := argsList[i]
-		goArgs[i] = buildGoValue(state, singleArg)
-	}
+	goArgs := buildGoValues(state, argCount, argsList)
 
 	retVals, err := goFunction(goArgs)
-	retVal.valueCount = C.int(len(retVals))
-	retVal.err = GoErrorToLua(err)
+	if err != nil {
+		ret.err.message = C.CString(err.Error())
+		return
+	}
 
-	valueArray := C.chmalloc(C.size_t(unsafe.Sizeof(uintptr(0))) * C.size_t(len(retVals)))
-	allValues := (*[1 << 30]*C.struct_lua_value)(valueArray)
+	//We don't need to alloc values for local vals or for nil, so figure out
+	//how many we need C to generate
+	createValues := 0
+	for _, val := range retVals {
+		if val == nil {
+			continue
+		}
+
+		switch val.(type) {
+		case *LocalLuaData, *LocalLuaFunction:
+			continue
+		}
+
+		createValues++
+	}
+
+	ret.err = nil
+	ret.valueCount = C.int(len(retVals))
+	ret.values = C.build_values(ret.valueCount, C.int(createValues))
+	allValues := (*[1 << 30]*C.struct_lua_value)(unsafe.Pointer(ret.values))
+
+	//We have N allocated values for M slots, but we need to make sure the right slots are populated
+	nextFilledValue := createValues - 1
+	for i := len(retVals) - 1; i >= 0; i-- {
+		if retVals[i] == nil {
+			continue
+		}
+
+		switch retVals[i].(type) {
+		case *LocalLuaData, *LocalLuaFunction:
+			continue
+		}
+
+		val := allValues[nextFilledValue]
+		allValues[nextFilledValue] = nil
+		allValues[i] = val
+		nextFilledValue--
+	}
+
 	for idx, singleVal := range retVals {
 		var value *C.lua_value
-		value, _, err = fromGoValue(state, singleVal)
+		value, _, err = fromGoValue(state, singleVal, allValues[idx])
 		allValues[idx] = value
 		if err != nil {
 			break
 		}
 	}
-
-	if err != nil {
-		for _, value := range allValues {
-			C.free_lua_value(_L, value)
-		}
-		retVal.valueCount = 0
-		retVal.err = GoErrorToLua(err)
-	} else {
-		retVal.values = (**C.struct_lua_value)(valueArray)
-	}
-
-	return retVal
 }

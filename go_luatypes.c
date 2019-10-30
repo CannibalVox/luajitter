@@ -34,7 +34,9 @@ void free_lua_return(lua_State *_L, lua_return retVal, _Bool freeValues) {
         }
     }
 
-    chfree(retVal.values);
+    if (retVal.valueCount > 0) {
+        chfree(retVal.values);
+    }
 }
 
 void free_lua_args(lua_State *_L, lua_args args, _Bool freeValues) {
@@ -230,3 +232,10 @@ lua_err *push_lua_return(lua_State *_L, lua_return retVal) {
     return NULL;
 }
 
+lua_value **build_values(int slots, int allocs) {
+    lua_value** valueList = chmalloc(sizeof(lua_value*)*slots);
+    for (int i = 0; i < allocs; i++) {
+        valueList[i] = chmalloc(sizeof(lua_value));
+    }
+    return valueList;
+}
