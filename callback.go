@@ -23,6 +23,7 @@ func callbackGoFunction(_L *C.lua_State, handle unsafe.Pointer, args C.lua_args,
 	goFunction, ok := handlePtr.(LuaCallback)
 	if !ok {
 		ret.err.message = C.CString("attempted to call go function with non-callback object")
+		C.increment_allocs()
 		return
 	}
 
@@ -34,6 +35,7 @@ func callbackGoFunction(_L *C.lua_State, handle unsafe.Pointer, args C.lua_args,
 	retVals, err := goFunction(goArgs)
 	if err != nil {
 		ret.err.message = C.CString(err.Error())
+		C.increment_allocs()
 		return
 	}
 

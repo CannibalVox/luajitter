@@ -256,6 +256,13 @@ end
 	require.Nil(callbackArgs[2])
 	require.IsType(&LocalLuaData{}, callbackArgs[3])
 
+	data := callbackArgs[3].(*LocalLuaData)
+	err = data.Close()
+	require.Nil(err)
+
+	err = errorF.Close()
+	require.Nil(err)
+
 	require.Equal(0, outlyingAllocs())
 }
 
@@ -272,7 +279,6 @@ func TestDoCallback(t *testing.T) {
 	require := require.New(t)
 	clearAllocs()
 	vm := NewState()
-	defer closeVM(t, vm)
 
 	err := vm.InitGlobal("test.callback", LuaCallback(SomeCallback))
 	require.Nil(err)
@@ -294,12 +300,15 @@ end
 
 	retVals, err := f.Call()
 	require.NotNil(retVals)
+	require.Nil(err)
 	require.Len(retVals, 4)
 	require.Equal("test", retVals[0])
 	require.Equal(5.0, retVals[1])
 	require.Equal(true, retVals[2])
 	require.IsType(&LocalLuaData{}, retVals[3])
 
+	data := retVals[3].(*LocalLuaData)
+	err = data.Close()
 	require.Nil(err)
 
 	require.Len(callbackArgs, 4)
@@ -307,6 +316,15 @@ end
 	require.Equal("bleh", callbackArgs[1])
 	require.Nil(callbackArgs[2])
 	require.IsType(&LocalLuaData{}, callbackArgs[3])
+
+	data = callbackArgs[3].(*LocalLuaData)
+	err = data.Close()
+	require.Nil(err)
+
+	err = f.Close()
+	require.Nil(err)
+
+	closeVM(t, vm)
 
 	require.Equal(0, outlyingAllocs())
 }
