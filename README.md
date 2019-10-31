@@ -55,97 +55,97 @@ func main() {
     vm := luajitter.NewState()
     defer closeVM(vm)
 
-     //Execute arbitrary code
-     err := vm.DoString(`
-     print("Hello, World")
-     someGlobal = {
-         itsANumber = 5,
-         itsAString = "WOW",
-         itsAFunction = function(l,r) return l+r end,
-     }
+    //Execute arbitrary code
+    err := vm.DoString(`
+    print("Hello, World")
+    someGlobal = {
+        itsANumber = 5,
+        itsAString = "WOW",
+        itsAFunction = function(l,r) return l+r end,
+    }
  `)
-     if err != nil {
-         panic(err)
-     }
+    if err != nil {
+        panic(err)
+    }
  
-     //Access globals with dot-separated paths
-     num, err := vm.GetGlobal("someGlobal.itsANumber")
-     if err != nil {
-         panic(err)
-     }
-     fmt.Println(num)
+    //Access globals with dot-separated paths
+    num, err := vm.GetGlobal("someGlobal.itsANumber")
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(num)
  
-     str, err := vm.GetGlobal("someGlobal.itsAString")
-     if err != nil {
-         panic(err)
-     }
-     fmt.Println(str)
+    str, err := vm.GetGlobal("someGlobal.itsAString")
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(str)
  
-     //Call Lua functions from go
-     fObj, err := vm.GetGlobal("someGlobal.itsAFunction")
-     if err != nil {
-         panic(err)
-     }
+    //Call Lua functions from go
+    fObj, err := vm.GetGlobal("someGlobal.itsAFunction")
+    if err != nil {
+        panic(err)
+    }
  
-     f := fObj.(*luajitter.LocalLuaFunction)
-     sumRet, err := f.Call(6, 3)
-     if err != nil {
-         panic(err)
-     }
-     fmt.Println(sumRet[0])
+    f := fObj.(*luajitter.LocalLuaFunction)
+    sumRet, err := f.Call(6, 3)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(sumRet[0])
  
-     //Manipulate lua globals from go
-     err = vm.SetGlobal("someGlobal.itsAString", "NEW STRING")
-     if err != nil {
-         panic(err)
-     }
+    //Manipulate lua globals from go
+    err = vm.SetGlobal("someGlobal.itsAString", "NEW STRING")
+    if err != nil {
+        panic(err)
+    }
  
-     str, err = vm.GetGlobal("someGlobal.itsAString")
-     if err != nil {
-         panic(err)
-     }
-     fmt.Println(str)
+    str, err = vm.GetGlobal("someGlobal.itsAString")
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(str)
  
-     //Set global + initialize intervening tables
-     err = vm.InitGlobal("someGlobal.subGlobal.subGlobal.value", true)
-     if err != nil {
-         panic(err)
-     }
+    //Set global + initialize intervening tables
+    err = vm.InitGlobal("someGlobal.subGlobal.subGlobal.value", true)
+    if err != nil {
+        panic(err)
+    }
  
-     b, err := vm.GetGlobal("someGlobal.subGlobal.subGlobal.value")
-     if err != nil {
-         panic(err)
-     }
-     fmt.Println(b)
+    b, err := vm.GetGlobal("someGlobal.subGlobal.subGlobal.value")
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(b)
  
-     //Catch lua errors from go
-     err = vm.DoString(`
-     someGlobal.errorFunc = function() error("lua failed!") end
+    //Catch lua errors from go
+    err = vm.DoString(`
+    someGlobal.errorFunc = function() error("lua failed!") end
  `)
-     if err != nil {
-         panic(err)
-     }
+    if err != nil {
+        panic(err)
+    }
  
-     errFObj, err := vm.GetGlobal("someGlobal.errorFunc")
-     if err != nil {
-         panic(err)
-     }
+    errFObj, err := vm.GetGlobal("someGlobal.errorFunc")
+    if err != nil {
+        panic(err)
+    }
  
-     errF := errFObj.(*luajitter.LocalLuaFunction)
-     _, err = errF.Call()
-     fmt.Println(err.Error())
+    errF := errFObj.(*luajitter.LocalLuaFunction)
+    _, err = errF.Call()
+    fmt.Println(err.Error())
+
+    //Call go functions from lua
+    err = vm.SetGlobal("addFunc", AddValues)
+    if err != nil {
+        panic(err)
+    }
  
-     //Call go functions from lua
-     err = vm.SetGlobal("addFunc", AddValues)
-     if err != nil {
-         panic(err)
-     }
- 
-     err = vm.DoString(`
-     print(addFunc(1,7))
+    err = vm.DoString(`
+    print(addFunc(1,7))
  `)
-     if err != nil {
-         panic(err)
-     }
- }
+    if err != nil {
+        panic(err)
+    }
+}
 ```
