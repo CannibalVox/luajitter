@@ -226,7 +226,7 @@ func TestDoErrorCallback(t *testing.T) {
 	vm := NewState()
 	defer closeVM(t, vm)
 
-	err := vm.InitGlobal("test.error_callback", LuaCallback(SomeErrorCallback))
+	err := vm.InitGlobal("test.error_callback", SomeErrorCallback)
 	require.Nil(err)
 
 	err = vm.DoString(`
@@ -280,7 +280,7 @@ func TestDoCallback(t *testing.T) {
 	clearAllocs()
 	vm := NewState()
 
-	err := vm.InitGlobal("test.callback", LuaCallback(SomeCallback))
+	err := vm.InitGlobal("test.callback", SomeCallback)
 	require.Nil(err)
 
 	err = vm.DoString(`
@@ -387,7 +387,7 @@ func BenchmarkCallbackFib35(b *testing.B) {
 	vm := NewState()
 	defer vm.Close()
 
-	err := vm.SetGlobal("_Add", LuaCallback(AddCallback))
+	err := vm.SetGlobal("_Add", AddCallback)
 	if err != nil {
 		panic(err)
 	}

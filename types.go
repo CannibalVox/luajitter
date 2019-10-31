@@ -14,8 +14,6 @@ import (
 	"unsafe"
 )
 
-type LuaCallback func([]interface{}) ([]interface{}, error)
-
 func outlyingAllocs() int {
 	return int(C.outlying_allocs())
 }
@@ -96,7 +94,7 @@ func fromGoValue(vm *LuaState, value interface{}, outValue *C.struct_lua_value) 
 			return nil, false, errors.New("attempt to use local data in wrong VM")
 		}
 		outValue = castV.LuaValue()
-	case func([]interface{}) ([]interface{}, error), LuaCallback:
+	case func([]interface{}) ([]interface{}, error):
 		if outValue == nil {
 			outValue = createLuaValue()
 		}

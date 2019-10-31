@@ -21,7 +21,7 @@ func releaseCGOHandle(handle unsafe.Pointer) *C.lua_err {
 //export callbackGoFunction
 func callbackGoFunction(_L *C.lua_State, handle unsafe.Pointer, args C.lua_args, ret *C.lua_return) {
 	handlePtr := pointer.Restore(handle)
-	goFunction, ok := handlePtr.(LuaCallback)
+	goFunction, ok := handlePtr.(func([]interface{}) ([]interface{}, error))
 	if !ok {
 		ret.err.message = C.CString("attempted to call go function with non-callback object")
 		C.increment_allocs()
