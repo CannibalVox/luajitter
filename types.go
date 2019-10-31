@@ -1,8 +1,9 @@
 package luajitter
 
 /*
-#cgo CFLAGS: -I"C:/Users/Stephen Baynham/source/repos/LuaJIT/include/luajit-5.1"
-#cgo LDFLAGS: -L"C:/Users/Stephen Baynham/source/repos/LuaJIT/lib/windows_amd64/luajit-5.1" -llua51
+#cgo !windows pkg-config: luajit
+#cgo windows CFLAGS: -I${SRCDIR}/include
+#cgo windows LDFLAGS: -L${SRCDIR} -llua51
 #include "go_luajit.h"
 */
 import "C"
@@ -23,8 +24,8 @@ func clearAllocs() {
 	C.clear_allocs()
 }
 
-var luaValueSize C.ulonglong = C.ulonglong(unsafe.Sizeof(C.lua_value{}))
-var luaReturnSize C.ulonglong = C.ulonglong(unsafe.Sizeof(C.lua_return{}))
+var luaValueSize C.size_t = C.size_t(unsafe.Sizeof(C.lua_value{}))
+var luaReturnSize C.size_t = C.size_t(unsafe.Sizeof(C.lua_return{}))
 
 func createLuaValue() *C.struct_lua_value {
 	return (*C.struct_lua_value)(C.chmalloc(luaValueSize))
