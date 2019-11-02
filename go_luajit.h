@@ -5,6 +5,7 @@
 #include <lauxlib.h>
 #include <lualib.h>
 #include <string.h>
+#include <errno.h>
 
 #define MT_GOCALLBACK "GO_CALLBACK"
 

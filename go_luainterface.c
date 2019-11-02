@@ -41,6 +41,19 @@ lua_err *create_walk_error(const char *fullPath, const char *path, const char *e
     return create_lua_error(fullError);
 }
 
+void push_walk_key(lua_State *_L, const char *path, int segLen) {
+    char *outPath;
+    char *expectedFinishPath = (char*)(path+segLen);
+
+    int result = strtol(path, &outPath, 10);
+    if (result != 0 || errno == 0 && expectedFinishPath == outPath) {
+        lua_pushinteger(_L, result);
+        return;
+    }
+
+    lua_pushlstring(_L, path, (size_t)segLen);
+}
+
 lua_result walk_next_segment(lua_State *_L, int depth, const char *fullPath, const char *path, last_segment_handler handler, _Bool fillIntermediateTables) {
     lua_result retVal = {};
     if (lua_isnil(_L, -1)) {
@@ -62,20 +75,20 @@ lua_result walk_next_segment(lua_State *_L, int depth, const char *fullPath, con
     }
 
     if (path[segLen] == '.') {
-        lua_pushlstring(_L, path, (size_t)segLen);
+        push_walk_key(_L, path, segLen);
         lua_gettable(_L, -2);
         if (fillIntermediateTables && lua_isnil(_L, -1)) {
             //Remove nil from the stack
             lua_pop(_L, 1);
 
             //Push key & new table
-            lua_pushlstring(_L, path, (size_t)segLen);
+            push_walk_key(_L, path, segLen);
             lua_newtable(_L);
             //Put new table into old one
             lua_settable(_L, -3);
 
             //Retry get now that the new table is in there
-            lua_pushlstring(_L, path, (size_t)segLen);
+            push_walk_key(_L, path, segLen);
             lua_gettable(_L, -2);
         }
         retVal = walk_next_segment(_L, depth+1, fullPath, path+segLen+1, handler, fillIntermediateTables);
@@ -94,7 +107,7 @@ lua_result walk_table_path(lua_State *_L, int valueIndex, const char *path, last
 }
 
 lua_result get_global_handler(lua_State *_L, int depth, const char *fullPath, const char *path) {
-    lua_pushlstring(_L, path, strlen(path));
+    push_walk_key(_L, path, strlen(path));
     lua_gettable(_L, -2);
     return convert_stack_value(_L);
 }
@@ -105,7 +118,7 @@ lua_result get_global(lua_State *_L, const char *path, _Bool fillIntermediateTab
 }
 
 lua_result set_global_handler(lua_State *_L, int depth, const char *fullPath, const char *path) {
-    lua_pushlstring(_L, path, strlen(path));
+    push_walk_key(_L, path, strlen(path));
     lua_pushvalue(_L, -2-depth);
     lua_settable(_L, -3);
     lua_result res = {};

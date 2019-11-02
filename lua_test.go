@@ -60,6 +60,37 @@ func TestInitGlobal(t *testing.T) {
 	require.Equal(t, 0, outlyingAllocs())
 }
 
+func TestInitGlobalNumIndex(t *testing.T) {
+	clearAllocs()
+	vm := NewState()
+	defer closeVM(t, vm)
+
+	err := vm.InitGlobal("test.test2.1", "This ")
+	require.Nil(t, err)
+
+	err = vm.SetGlobal("test.test2.2", "is")
+	require.Nil(t, err)
+
+	err = vm.SetGlobal("test.test2.3", " good")
+	require.Nil(t, err)
+
+	err = vm.DoString("function getVal() return table.concat(test.test2) end")
+	require.Nil(t, err)
+
+	funcObj, err := vm.GetGlobal("getVal")
+	require.Nil(t, err)
+
+	f := funcObj.(*LocalLuaFunction)
+	outVal, err := f.Call()
+	require.Nil(t, err)
+	require.Len(t, outVal, 1)
+	require.Equal(t, "This is good", outVal[0])
+	err = f.Close()
+	require.Nil(t, err)
+
+	require.Equal(t, 0, outlyingAllocs())
+}
+
 const fibo string = `
 function fib(val)
 	if val < 2 then 
