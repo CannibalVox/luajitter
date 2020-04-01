@@ -1,20 +1,22 @@
 # LuaJitter
 
-Blazing fast LuaJIT bindings with great ergonomics.  Uses Go 1.13.
+Blazing fast LuaJIT bindings with great ergonomics.  Uses Go 1.14.
 
 ## Installing
 
 ### MacOS
 
-```shell script
-brew install luajit
-CGO_LDFLAGS_ALLOW='\-pagezero_size|\d+|\-image_base' go test ./...
-```
+1. Install luajit with Homebrew: `brew install luajit`
+1. Locate the pkg-config file (it is usually in or around `/usr/local/Cellar/luajit/2.0.5/lib/pkgconfig/luajit.pc`)
+1. Modify the LDFLAGS at the bottom of the luajit.pc file to remove -pagezero_size and -image_base arguments
+1. `go test ./...` should now work
 
 ### Linux
 
 1. Download the LuaJIT source from http://luajit.org/download.html
 1. Follow the POSIX installation instructions at http://luajit.org/install.html
+1. Locate the pkg-config file
+1. Modify the LDFLAGS at the bottom of the luajit.pc file to remove -pagezero_size and -image_base arguments
 1. `go test ./...` should now work
 
 ### Windows

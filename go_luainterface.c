@@ -46,7 +46,7 @@ void push_walk_key(lua_State *_L, const char *path, int segLen) {
     char *expectedFinishPath = (char*)(path+segLen);
 
     int result = strtol(path, &outPath, 10);
-    if (result != 0 || errno == 0 && expectedFinishPath == outPath) {
+    if ((result != 0 || errno == 0) && expectedFinishPath == outPath) {
         lua_pushinteger(_L, result);
         return;
     }
