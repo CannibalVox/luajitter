@@ -1,5 +1,27 @@
 #include "go_luajit.h"
 
+void free_table_entry(lua_State *L, lua_table_entry *entry) {
+    if (entry == NULL)
+        return;
+
+    free_lua_value(L, entry->key);
+    entry->key = NULL;
+    free_lua_value(L, entry->value);
+    entry->value = NULL;
+    chfree(entry);
+}
+
+void free_unrolled_table(lua_State *L, lua_unrolled_table *table) {
+    table->last = NULL;
+    lua_table_entry *next = table->first;
+    while (next != NULL) {
+        table->first = next->next;
+        free_table_entry(L, next);
+        next = table->first;
+    }
+    table->first = NULL;
+}
+
 void free_lua_value(lua_State *L, lua_value *value) {
     if (value == NULL)
         return;
@@ -17,6 +39,9 @@ void free_lua_value(lua_State *L, lua_value *value) {
         case LUA_TLIGHTUSERDATA:
         case LUA_TTABLE:
             luaL_unref(L, LUA_REGISTRYINDEX, value->data.luaRefVal);
+            break;
+        case LUA_TUNROLLEDTABLE:
+            free_unrolled_table(L, (lua_unrolled_table*)value->data.pointerVal);
             break;
         default:
             break;
@@ -49,6 +74,75 @@ void free_lua_args(lua_State *_L, lua_args args, _Bool freeValues) {
     chfree(args.values);
 }
 
+lua_result unroll_table(lua_State *_L, int luaRefVal) {
+    lua_result retVal;
+    lua_unrolled_table *unrolled = chmalloc(sizeof(lua_unrolled_table));
+    retVal.err = NULL;
+    retVal.value = chmalloc(sizeof(lua_value));
+    retVal.value->valueType = LUA_TUNROLLEDTABLE;
+    retVal.value->data.pointerVal = NULL;
+
+    //Push rolled table to top of stack
+    lua_rawgeti(_L, LUA_REGISTRYINDEX, luaRefVal);
+
+    unrolled->first = NULL;
+    unrolled->last = NULL;
+
+    lua_pushnil(_L); // First key to start iteration
+    while (lua_next(_L, -1) != 0) {
+
+        lua_result key;
+        lua_result value = convert_stack_value(_L);
+
+        if (value.err == NULL) {
+            key = convert_stack_value_impl(_L, 1);
+        }
+
+
+        if (value.err != NULL || key.err != NULL) {
+            //Move error over to output
+            if (value.err != NULL) {
+                retVal.err = value.err;
+            } else {
+                retVal.err = key.err;
+            }
+
+            //Free allocated values
+            if (key.value != NULL) free_lua_value(_L, key.value);
+            if (value.value != NULL) free_lua_value(_L, value.value);
+
+            //Free the unrolled table in progress
+            free_unrolled_table(_L, unrolled);
+            retVal.value = NULL;
+
+            //Pop table from stack
+            lua_pop(_L, 1);
+
+            return retVal;
+        }
+
+        lua_table_entry *entry = chmalloc(sizeof(lua_table_entry));
+        entry->key = key.value;
+        entry->value = value.value;
+        entry->next = NULL;
+
+        if (unrolled->first == NULL)  {
+            unrolled->first = entry;
+            unrolled->last = entry;
+        } else {
+            unrolled->last->next = entry;
+            unrolled->last = entry;
+        }
+     }
+
+     retVal.value->data.pointerVal = unrolled;
+
+     //remove table to cleanup
+     lua_pop(_L, 1);
+
+     return retVal;
+}
+
 _Bool isUData(lua_State *_L, const char *name) {
     luaL_getmetatable(_L, name);
     int equal = lua_rawequal(_L, -1, -2);
@@ -57,6 +151,10 @@ _Bool isUData(lua_State *_L, const char *name) {
 }
 
 lua_result convert_stack_value(lua_State *L) {
+    return convert_stack_value_impl(L, 0);
+}
+
+lua_result convert_stack_value_impl(lua_State *L, _Bool suppressPop) {
     int type = lua_type(L, -1);
     lua_result retVal = {};
     retVal.err = NULL;
@@ -72,7 +170,7 @@ lua_result convert_stack_value(lua_State *L) {
     retVal.value->dataArg.isCFunction = 0;
     retVal.value->data.pointerVal = 0;
     retVal.err = NULL;
-    _Bool needsPop = 1;
+    _Bool needsPop = !suppressPop;
 
     switch(type) {
         case LUA_TNUMBER:
@@ -156,6 +254,24 @@ lua_return pop_lua_values(lua_State *_L, int valueCount) {
     return retVal;
 }
 
+lua_err *push_unrolled_table(lua_State *_L, lua_unrolled_table *table) {
+    lua_newtable(_L);
+    lua_table_entry *next = table->first;
+    while (next != NULL) {
+        lua_err *err = push_lua_value(_L, next->key);
+        if (err != NULL) return err;
+
+        err = push_lua_value(_L, next->value);
+        if (err != NULL) return err;
+
+        lua_rawset(_L, -3);
+
+        next = next->next;
+    }
+
+    return NULL;
+}
+
 lua_err *push_lua_value(lua_State *_L, lua_value *value) {
     if (value == NULL) {
         lua_pushnil(_L);
@@ -195,6 +311,8 @@ lua_err *push_lua_value(lua_State *_L, lua_value *value) {
         case LUA_TTABLE:
             lua_rawgeti(_L, LUA_REGISTRYINDEX, value->data.luaRefVal);
             break;
+        case LUA_TUNROLLEDTABLE:
+            return push_unrolled_table(_L, (lua_unrolled_table*)value->data.pointerVal);
         default:
             return create_lua_error("CANNOT PUSH TO STACK - INVALID VALUE");
     }

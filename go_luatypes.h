@@ -1,4 +1,5 @@
 #define LUA_TUNLOADEDCALLBACK -1
+#define LUA_TUNROLLEDTABLE -2
 
 #define META_GOCALLBACK 1
 
@@ -43,12 +44,29 @@ struct lua_args {
 };
 typedef struct lua_args lua_args;
 
+struct lua_table_entry {
+    lua_value *key;
+    lua_value *value;
+    struct lua_table_entry *next;
+};
+
+typedef struct lua_table_entry lua_table_entry;
+
+struct lua_unrolled_table {
+    lua_table_entry *first;
+    lua_table_entry *last;
+};
+
+typedef struct lua_unrolled_table lua_unrolled_table;
+
 extern void free_lua_value(lua_State *L, lua_value *value);
 extern void free_lua_return(lua_State *_L, lua_return retVal, _Bool freeValues);
 extern void free_lua_args(lua_State *_L, lua_args args, _Bool freeValues);
 extern lua_result convert_stack_value(lua_State *L);
+lua_result convert_stack_value_impl(lua_State *L, _Bool suppressPop);
 extern lua_return pop_lua_values(lua_State *_L, int valueCount);
 extern lua_err *push_lua_value(lua_State *_L, lua_value *value);
 extern lua_err *push_lua_args(lua_State *_L, lua_args args);
 extern lua_err *push_lua_return(lua_State *_L, lua_return retVal);
 extern lua_value **build_values(int slots, int allocs);
+extern lua_result unroll_table(lua_State *_L, int luaRefVal);
