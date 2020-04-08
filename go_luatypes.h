@@ -22,6 +22,7 @@ struct lua_value {
     int valueType;
     lua_primitive data;
     lua_data_arg dataArg;
+    _Bool temporary;
 };
 typedef struct lua_value lua_value;
 
@@ -59,9 +60,18 @@ struct lua_unrolled_table {
 
 typedef struct lua_unrolled_table lua_unrolled_table;
 
+extern void free_temporary_lua_value(lua_State *L, lua_value *value);
 extern void free_lua_value(lua_State *L, lua_value *value);
+void free_lua_value_impl(lua_State *L, lua_value *value, _Bool deletePermanent);
+
 extern void free_lua_return(lua_State *_L, lua_return retVal, _Bool freeValues);
+extern void free_temporary_lua_return(lua_State *_L, lua_return retVal, _Bool freeValues);
+void free_lua_return_impl(lua_State *_L, lua_return retVal, _Bool freeValues, _Bool deletePermanent);
+
 extern void free_lua_args(lua_State *_L, lua_args args, _Bool freeValues);
+extern void free_temporary_lua_args(lua_State *_L, lua_args args, _Bool freeValues);
+void free_lua_args_impl(lua_State *_L, lua_args args, _Bool freeValues, _Bool deletePermanent);
+
 extern lua_result convert_stack_value(lua_State *L);
 lua_result convert_stack_value_impl(lua_State *L, _Bool suppressPop);
 extern lua_return pop_lua_values(lua_State *_L, int valueCount);
@@ -69,4 +79,5 @@ extern lua_err *push_lua_value(lua_State *_L, lua_value *value);
 extern lua_err *push_lua_args(lua_State *_L, lua_args args);
 extern lua_err *push_lua_return(lua_State *_L, lua_return retVal);
 extern lua_value **build_values(int slots, int allocs);
-extern lua_result unroll_table(lua_State *_L, int luaRefVal);
+extern lua_result unroll_table(lua_State *_L, lua_value *table);
+extern lua_unrolled_table *build_unrolled_table(int entries);

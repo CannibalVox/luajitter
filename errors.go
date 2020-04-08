@@ -1,9 +1,6 @@
 package luajitter
 
 /*
-#cgo !windows pkg-config: luajit
-#cgo windows CFLAGS: -I${SRCDIR}/include
-#cgo windows LDFLAGS: -L${SRCDIR} -llua51
 #include "go_luajit.h"
 */
 import "C"

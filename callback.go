@@ -1,9 +1,6 @@
 package luajitter
 
 /*
-#cgo !windows pkg-config: luajit
-#cgo windows CFLAGS: -I${SRCDIR}/include
-#cgo windows LDFLAGS: -L${SRCDIR} -llua51
 #include "go_luajit.h"
 */
 import "C"
@@ -81,7 +78,7 @@ func callbackGoFunction(_L *C.lua_State, handle unsafe.Pointer, args C.lua_args,
 
 	for idx, singleVal := range retVals {
 		var value *C.lua_value
-		value, _, err = fromGoValue(state, singleVal, allValues[idx])
+		value, err = fromGoValue(state, singleVal, allValues[idx])
 		allValues[idx] = value
 		if err != nil {
 			break

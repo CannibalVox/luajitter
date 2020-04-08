@@ -31,7 +31,7 @@ int execute_go_callback(lua_State *_L) {
     lua_err *retErr = chmalloc(sizeof(lua_error));
     goReturn->err = retErr;
     callbackGoFunction(_L, *goCallback, args, goReturn);
-    free_lua_args(_L, args, 1);
+    free_temporary_lua_args(_L, args, 1);
 
     if (goReturn->err == NULL) {
         chfree(retErr);
@@ -47,7 +47,7 @@ int execute_go_callback(lua_State *_L) {
 
     err = push_lua_return(_L, *goReturn);
     int valueCount = goReturn->valueCount;
-    free_lua_return(_L, *goReturn, 1);
+    free_temporary_lua_return(_L, *goReturn, 1);
     chfree(goReturn);
     if (err != NULL) {
         return raise_lua_error(_L, err);

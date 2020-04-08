@@ -49,7 +49,7 @@ func TestInitGlobal(t *testing.T) {
 	tableObj, err := vm.GetGlobal("test.test2")
 	require.Nil(t, err)
 	require.NotNil(t, tableObj)
-	table, ok := tableObj.(*LocalLuaData)
+	table, ok := tableObj.(*LocalLuaTable)
 	require.True(t, ok)
 	require.NotNil(t, table)
 	require.Equal(t, 5, int(table.value.valueType))
@@ -285,9 +285,9 @@ end
 	require.Equal(5.0, callbackArgs[0])
 	require.Equal("bleh", callbackArgs[1])
 	require.Nil(callbackArgs[2])
-	require.IsType(&LocalLuaData{}, callbackArgs[3])
+	require.IsType(&LocalLuaTable{}, callbackArgs[3])
 
-	data := callbackArgs[3].(*LocalLuaData)
+	data := callbackArgs[3].(*LocalLuaTable)
 	err = data.Close()
 	require.Nil(err)
 
@@ -346,15 +346,61 @@ end
 	require.Equal(5.0, callbackArgs[0])
 	require.Equal("bleh", callbackArgs[1])
 	require.Nil(callbackArgs[2])
-	require.IsType(&LocalLuaData{}, callbackArgs[3])
+	require.IsType(&LocalLuaTable{}, callbackArgs[3])
 
-	data = callbackArgs[3].(*LocalLuaData)
-	err = data.Close()
+	tableRet := callbackArgs[3].(*LocalLuaTable)
+	err = tableRet.Close()
 	require.Nil(err)
 
 	err = f.Close()
 	require.Nil(err)
 
+	closeVM(t, vm)
+
+	require.Equal(0, outlyingAllocs())
+}
+
+func TestRollUnroll(t *testing.T) {
+	require := require.New(t)
+	clearAllocs()
+	vm := NewState()
+
+	err := vm.SetGlobal("mytable", map[interface{}]interface{}{
+		"testValue": "wow!",
+		"testNumber": 5,
+		"innerTable": map[interface{}]interface{}{
+			"innerValue": "neat",
+			"someBool": true,
+		},
+	})
+	require.Nil(err)
+
+	strValue, err := vm.GetGlobal("mytable.testValue")
+	require.Nil(err)
+	require.IsType("", strValue)
+	nowStr := strValue.(string)
+	require.Equal("wow!", nowStr)
+
+	numValue, err := vm.GetGlobal("mytable.testNumber")
+	require.Nil(err)
+	require.IsType(0.0, numValue)
+	nowNum := numValue.(float64)
+	require.Equal(5.0, nowNum)
+
+	tableValue, err := vm.GetGlobal("mytable.innerTable")
+	require.Nil(err)
+	require.IsType(&LocalLuaTable{}, tableValue)
+	nowTable := tableValue.(*LocalLuaTable)
+	table, err := nowTable.Unroll()
+	require.Nil(err)
+
+	nowStr = table["innerValue"].(string)
+	require.Equal("neat", nowStr)
+	nowBool := table["someBool"].(bool)
+	require.Equal(true, nowBool)
+
+	err = nowTable.Close()
+	require.Nil(err)
 	closeVM(t, vm)
 
 	require.Equal(0, outlyingAllocs())
@@ -390,6 +436,38 @@ end
 	}
 	fmt.Println(out[0])
 }
+
+func BenchmarkRandom(b *testing.B) {
+	clearAllocs()
+	vm := NewState()
+	defer vm.Close()
+
+	err := vm.DoString(`
+	local rand = math.random
+	math.randomseed(os.time())
+	rand(); rand(); rand()
+function uuid()
+    local template ='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+    return string.gsub(template, '[xy]', function (c)
+        local v = (c == 'x') and rand(0, 0xf) or rand(8, 0xb)
+        return string.format('%x', v)
+    end)
+end
+`)
+	if err != nil {
+		panic(err)
+	}
+	
+	uuidFuncObj, err := vm.GetGlobal("uuid")
+	if err != nil {
+		panic(err)
+	}
+
+	uuidFunc := uuidFuncObj.(*LocalLuaFunction)
+	uuid, err := uuidFunc.Call()
+	fmt.Println("ITERATION ",b.N, uuid[0])
+}
+
 
 var cbCount = 0
 
