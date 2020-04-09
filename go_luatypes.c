@@ -127,7 +127,7 @@ lua_result unroll_table(lua_State *_L, lua_value *table) {
         lua_result key;
         lua_result value = convert_stack_value(_L);
 
-        if (value.err == NULL && value.value->valueType == LUA_TTABLE) {
+        if (value.err == NULL && value.value != NULL && value.value->valueType == LUA_TTABLE) {
             lua_result nextValue = unroll_table(_L, value.value);
             free_lua_value(_L, value.value);
             value = nextValue;
@@ -136,12 +136,13 @@ lua_result unroll_table(lua_State *_L, lua_value *table) {
         if (value.err == NULL) {
             key = convert_stack_value_impl(_L, 1);
 
-            if (key.err == NULL && key.value->valueType == LUA_TTABLE) {
+            if (key.err == NULL && key.value != NULL && key.value->valueType == LUA_TTABLE) {
                 lua_result nextKey = unroll_table(_L, key.value);
                 free_lua_value(_L, key.value);
                 key = nextKey;
             }
         }
+
 
         if (value.err != NULL || key.err != NULL) {
             //Move error over to output
@@ -182,7 +183,7 @@ lua_result unroll_table(lua_State *_L, lua_value *table) {
      retVal.value->data.pointerVal = (void*)unrolled;
 
      //remove table to cleanup
-     lua_pop(_L, -1);
+     lua_pop(_L, 1);
 
      return retVal;
 }

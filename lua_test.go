@@ -338,7 +338,7 @@ end
 	require.Equal(true, retVals[2])
 	require.IsType(&LocalLuaData{}, retVals[3])
 
-	data := retVals[3].(*LocalLuaData)
+	data := retVals[3].(LocalData)
 	err = data.Close()
 	require.Nil(err)
 
@@ -355,6 +355,92 @@ end
 	err = f.Close()
 	require.Nil(err)
 
+	closeVM(t, vm)
+
+	require.Equal(0, outlyingAllocs())
+}
+
+func TestPermanentValues(t *testing.T) {
+	require := require.New(t)
+	clearAllocs()
+	vm := NewState()
+
+	err := vm.SetGlobal("sometable", map[interface{}]interface{}{})
+	require.Nil(err)
+
+	someTable, err := vm.GetGlobal("sometable")
+	require.Nil(err)
+
+	err = vm.DoString(`
+function somefunc()
+end
+`)
+	require.Nil(err)
+
+	someFunc, err := vm.GetGlobal("somefunc")
+	require.Nil(err)
+
+	err = vm.SetGlobal("mytable", map[interface{}]interface{}{
+		"t": someTable,
+		"f": someFunc,
+	})
+	require.Nil(err)
+
+	tableVal, err := vm.GetGlobal("mytable")
+	require.Nil(err)
+	require.IsType(&LocalLuaTable{}, tableVal)
+	table := tableVal.(*LocalLuaTable)
+	unrolled, err := table.Unroll()
+	require.Nil(err)
+
+	require.IsType(make(map[interface{}]interface{}), unrolled["t"])
+	require.IsType(&LocalLuaFunction{}, unrolled["f"])
+
+	err = unrolled["f"].(*LocalLuaFunction).Close()
+	require.Nil(err)
+
+	err = table.Close()
+	require.Nil(err)
+	err = someTable.(*LocalLuaTable).Close()
+	require.Nil(err)
+	err = someFunc.(*LocalLuaFunction).Close()
+	require.Nil(err)
+	closeVM(t, vm)
+
+	require.Equal(0, outlyingAllocs())
+}
+
+func TestTwoTierUnroll(t *testing.T) {
+	require := require.New(t)
+	clearAllocs()
+	vm := NewState()
+
+	err := vm.SetGlobal("mytable", map[interface{}]interface{}{
+		"testValue": "wow!",
+		"testNumber": 5,
+		"innerTable": map[interface{}]interface{}{
+			"innerValue": "neat",
+			"someBool": true,
+		},
+	})
+	require.Nil(err)
+
+	tableVal, err := vm.GetGlobal("mytable")
+	require.Nil(err)
+	require.IsType(&LocalLuaTable{}, tableVal)
+	table := tableVal.(*LocalLuaTable)
+	unrolled, err := table.Unroll()
+	require.Nil(err)
+
+	require.Equal("wow!", unrolled["testValue"])
+	require.Equal(5.0, unrolled["testNumber"])
+	require.IsType(make(map[interface{}]interface{}), unrolled["innerTable"])
+	innerTable := unrolled["innerTable"].(map[interface{}]interface{})
+	require.Equal("neat", innerTable["innerValue"])
+	require.Equal(true, innerTable["someBool"])
+
+	err = table.Close()
+	require.Nil(err)
 	closeVM(t, vm)
 
 	require.Equal(0, outlyingAllocs())
@@ -489,6 +575,41 @@ func AddCallback(args []interface{}) ([]interface{}, error) {
 	return []interface{}{
 		l + r,
 	}, nil
+}
+
+func BenchmarkRollUnroll(b *testing.B) {
+	clearAllocs()
+	vm := NewState()
+	defer vm.Close()
+
+	in := make(map[interface{}]interface{})
+	for i := 0; i < 100; i++ {
+		in[i+1] = map[interface{}]interface{}{
+			"field1": "a",
+			"field2": "b",
+			"field3": 3,
+		}
+	}
+
+	err := vm.SetGlobal("bigmap", in)
+	if err != nil {
+		panic(err)
+	}
+
+	table, err := vm.GetGlobal("bigmap")
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = table.(*LocalLuaTable).Unroll()
+	if err != nil {
+		panic(err)
+	}
+
+	err = table.(LocalData).Close()
+	if err != nil {
+		panic(err)
+	}
 }
 
 func BenchmarkCallbackFib35(b *testing.B) {

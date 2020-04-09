@@ -5,6 +5,12 @@ package luajitter
 */
 import "C"
 
+type LocalData interface {
+	LuaValue() *C.struct_lua_value
+	HomeVM() *LuaState
+	Close() error
+}
+
 type LocalLuaData struct {
 	value  *C.struct_lua_value
 	homeVM *LuaState

@@ -14,7 +14,8 @@ type LocalLuaTable struct {
 func (table *LocalLuaTable) convertSingleUnrolledValue(value *C.struct_lua_value) (interface{}, error) {
 	if value.valueType == C.LUA_TUNROLLEDTABLE {
 		value.temporary = C._Bool(true)
-		return table.convertUnrolledTable((*C.struct_lua_unrolled_table)(unsafe.Pointer(&value.data)))
+		tablePtr := (**C.struct_lua_unrolled_table)(unsafe.Pointer(&value.data))
+		return table.convertUnrolledTable(*tablePtr)
 	}
 
 	return buildGoValue(table.HomeVM(), value), nil

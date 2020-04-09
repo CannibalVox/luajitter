@@ -81,9 +81,9 @@ func fromGoValue(vm *LuaState, value interface{}, outValue *C.struct_lua_value) 
 		valDataArg := (*C.size_t)(unsafe.Pointer(&outValue.dataArg))
 		*valDataArg = C.size_t(len(v))
 	case *LocalLuaFunction, *LocalLuaData, *LocalLuaTable:
-		castV := v.(*LocalLuaData)
+		castV := v.(LocalData)
 		if outValue != nil {
-			return outValue, errors.New("incorrectly-allocated ")
+			C.free_lua_value(vm._l, outValue)
 		}
 		if vm != castV.HomeVM() {
 			return nil, errors.New("attempt to use local data in wrong VM")

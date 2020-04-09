@@ -74,11 +74,11 @@ func (s *LuaState) setGlobal(path string, value interface{}, createIntermediateT
 	defer C.free(unsafe.Pointer(cPath))
 
 	cValue, err := fromGoValue(s, value, nil)
-	if cValue.temporary == C._Bool(true) {
-		defer C.free_temporary_lua_value(s._l, cValue)
-	}
 	if err != nil {
 		return err
+	}
+	if cValue.temporary == C._Bool(true) {
+		defer C.free_temporary_lua_value(s._l, cValue)
 	}
 
 	cErr := C.set_global(s._l, cPath, cValue, (C._Bool)(createIntermediateTables))
