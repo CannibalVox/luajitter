@@ -21,11 +21,11 @@ func (f *LocalLuaFunction) Call(args ...interface{}) ([]interface{}, error) {
 	var err error
 	for ind, arg := range args {
 		val, err := fromGoValue(f.HomeVM(), arg, nil)
-		if val.temporary == C._Bool(true) {
-			defer C.free_temporary_lua_value(f.HomeVM()._l, val)
-		}
 		if err != nil {
 			break
+		}
+		if val.temporary == C._Bool(true) {
+			defer C.free_temporary_lua_value(f.HomeVM()._l, val)
 		}
 
 		argsIn[ind] = val
