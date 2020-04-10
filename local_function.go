@@ -22,7 +22,7 @@ func (f *LocalLuaFunction) Call(args ...interface{}) ([]interface{}, error) {
 	for ind, arg := range args {
 		val, err := fromGoValue(f.HomeVM(), arg, nil)
 		if err != nil {
-			break
+			return nil, err
 		}
 		if val != nil && val.temporary == C._Bool(true) {
 			defer C.free_temporary_lua_value(f.HomeVM()._l, val)
