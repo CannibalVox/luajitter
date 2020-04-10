@@ -24,7 +24,7 @@ func (f *LocalLuaFunction) Call(args ...interface{}) ([]interface{}, error) {
 		if err != nil {
 			break
 		}
-		if val.temporary == C._Bool(true) {
+		if val != nil && val.temporary == C._Bool(true) {
 			defer C.free_temporary_lua_value(f.HomeVM()._l, val)
 		}
 
