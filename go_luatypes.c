@@ -398,6 +398,8 @@ lua_err *push_lua_return(lua_State *_L, lua_return retVal) {
 
 lua_unrolled_table *build_unrolled_table(int entries) {
     lua_unrolled_table *table = chmalloc(sizeof(lua_unrolled_table));
+    table->first = NULL;
+    table->last = NULL;
 
     lua_table_entry *entry = NULL;
     for (int i = 0; i < entries; i++) {
