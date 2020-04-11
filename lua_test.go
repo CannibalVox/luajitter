@@ -60,6 +60,31 @@ func TestInitGlobal(t *testing.T) {
 	require.Equal(t, 0, outlyingAllocs())
 }
 
+func TestIsYieldable(t *testing.T) {
+	clearAllocs()
+	vm := NewState()
+	defer closeVM(t, vm)
+
+	err := vm.DoString(`
+	function canyield()
+		return coroutine.isyieldable()
+	end
+`)
+	require.Nil(t, err)
+
+	funcObj, err := vm.GetGlobal("canyield")
+	require.Nil(t, err)
+	f := funcObj.(*LocalLuaFunction)
+	outVal, err := f.Call()
+	require.Nil(t, err)
+	require.Equal(t, false, outVal[0])
+
+	err = f.Close()
+	require.Nil(t, err)
+
+	require.Equal(t, 0, outlyingAllocs())
+}
+
 func TestInitGlobalNumIndex(t *testing.T) {
 	clearAllocs()
 	vm := NewState()
