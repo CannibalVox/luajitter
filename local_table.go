@@ -22,7 +22,7 @@ func (table *LocalLuaTable) convertSingleUnrolledValue(value *C.struct_lua_value
 }
 
 func (table *LocalLuaTable) convertUnrolledTable(unrolled *C.struct_lua_unrolled_table) (map[interface{}]interface{}, error) {
-	retVal := make(map[interface{}]interface{})
+	retVal := make(map[interface{}]interface{}, unrolled.arraySize+unrolled.hashSize)
 	var entry *C.struct_lua_table_entry
 	entry = unrolled.first
 

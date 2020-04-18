@@ -120,6 +120,8 @@ lua_result unroll_table(lua_State *_L, lua_value *table) {
 
     unrolled->first = NULL;
     unrolled->last = NULL;
+    unrolled->arraySize = 0;
+    unrolled->hashSize = 0;
 
     lua_pushnil(_L); // First key to start iteration
 
@@ -167,6 +169,21 @@ lua_result unroll_table(lua_State *_L, lua_value *table) {
         }
 
         lua_table_entry *entry = chmalloc(sizeof(lua_table_entry));
+
+        //We should increment the array count or hash count
+        if (key.value->valueType == LUA_TNUMBER) {
+            float number = key.value->data.numberVal;
+
+            if (number > 0) {
+                //We can be off by a little if we need to, so don't bohter figuring out
+                //if number is an integer
+                unrolled->arraySize = unrolled->arraySize+1;
+            } else {
+                unrolled->hashSize = unrolled->hashSize+1;
+            }
+        } else {
+            unrolled->hashSize = unrolled->hashSize+1;
+        }
         entry->key = key.value;
         entry->value = value.value;
         entry->next = NULL;
@@ -301,7 +318,7 @@ lua_return pop_lua_values(lua_State *_L, int valueCount) {
 }
 
 lua_err *push_unrolled_table(lua_State *_L, lua_unrolled_table *table) {
-    lua_newtable(_L);
+    lua_createtable(_L, table->arraySize, table->hashSize);
     lua_table_entry *next = table->first;
     while (next != NULL) {
         lua_err *err = push_lua_value(_L, next->key);
@@ -400,6 +417,8 @@ lua_unrolled_table *build_unrolled_table(int entries) {
     lua_unrolled_table *table = chmalloc(sizeof(lua_unrolled_table));
     table->first = NULL;
     table->last = NULL;
+    table->arraySize = 0;
+    table->hashSize = 0;
 
     lua_table_entry *entry = NULL;
     for (int i = 0; i < entries; i++) {

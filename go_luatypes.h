@@ -56,6 +56,9 @@ typedef struct lua_table_entry lua_table_entry;
 struct lua_unrolled_table {
     lua_table_entry *first;
     lua_table_entry *last;
+
+    unsigned int arraySize;
+    unsigned int hashSize;
 };
 
 typedef struct lua_unrolled_table lua_unrolled_table;
