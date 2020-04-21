@@ -18,14 +18,17 @@ func (f *LocalLuaFunction) Call(args ...interface{}) ([]interface{}, error) {
 	}
 
 	argsIn := make([]*C.struct_lua_value, len(args))
+	for i := 0; i < len(args); i++ {
+		argsIn[i] = nil
+	}
+
+	defer C.free_temporary_lua_value_array(f.HomeVM()._l, *(***C.struct_lua_value)(unsafe.Pointer(&argsIn)),C.int( len(args)))
+
 	var err error
 	for ind, arg := range args {
 		val, err := fromGoValue(f.HomeVM(), arg, nil)
 		if err != nil {
 			return nil, err
-		}
-		if val != nil && val.temporary == C._Bool(true) {
-			defer C.free_temporary_lua_value(f.HomeVM()._l, val)
 		}
 
 		argsIn[ind] = val
@@ -36,16 +39,14 @@ func (f *LocalLuaFunction) Call(args ...interface{}) ([]interface{}, error) {
 	}
 
 	var allRetVals []interface{}
-	if err == nil {
-		retVal := C.call_function(f.HomeVM()._l, f.LuaValue(), luaArgs)
-		if retVal.err != nil {
-			defer C.free_lua_error(retVal.err)
-			err = LuaErrorToGo(retVal.err)
-		} else if retVal.valueCount > 0 {
-			defer C.free_temporary_lua_return(f.HomeVM()._l, retVal, C._Bool(true))
-			valueList := (*[1 << 30]*C.struct_lua_value)(unsafe.Pointer(retVal.values))
-			allRetVals = buildGoValues(f.HomeVM(), int(retVal.valueCount), valueList)
-		}
+	retVal := C.call_function(f.HomeVM()._l, f.LuaValue(), luaArgs)
+	if retVal.err != nil {
+		defer C.free_lua_error(retVal.err)
+		err = LuaErrorToGo(retVal.err)
+	} else if retVal.valueCount > 0 {
+		defer C.free_temporary_lua_return(f.HomeVM()._l, retVal, C._Bool(true))
+		valueList := (*[1 << 30]*C.struct_lua_value)(unsafe.Pointer(retVal.values))
+		allRetVals = buildGoValues(f.HomeVM(), int(retVal.valueCount), valueList)
 	}
 
 	return allRetVals, err

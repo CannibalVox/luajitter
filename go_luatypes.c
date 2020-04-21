@@ -30,6 +30,15 @@ void free_temporary_lua_value(lua_State *L, lua_value *value) {
     free_lua_value_impl(L, value, 0);
 }
 
+void free_temporary_lua_value_array(lua_State *L, lua_value *value_array[], int count) {
+    for (int i = 0; i < count; i++) {
+        lua_value *value = value_array[i];
+        if (value != NULL) {
+            free_temporary_lua_value(L, value);
+        }
+    }
+}
+
 void free_lua_value(lua_State *L, lua_value *value) {
     free_lua_value_impl(L, value, 1);
 }

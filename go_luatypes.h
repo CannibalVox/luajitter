@@ -64,6 +64,7 @@ struct lua_unrolled_table {
 typedef struct lua_unrolled_table lua_unrolled_table;
 
 extern void free_temporary_lua_value(lua_State *L, lua_value *value);
+extern void free_temporary_lua_value_array(lua_State *L, lua_value *value_array[], int count);
 extern void free_lua_value(lua_State *L, lua_value *value);
 void free_lua_value_impl(lua_State *L, lua_value *value, _Bool deletePermanent);
 
