@@ -8,7 +8,7 @@ void free_table_entry(lua_State *L, lua_table_entry *entry, _Bool deletePermanen
     entry->key = NULL;
     free_lua_value_impl(L, entry->value, deletePermanent);
     entry->value = NULL;
-    chfree(entry);
+    return_lua_table_entry(L, entry);
 }
 
 void free_unrolled_table(lua_State *L, lua_unrolled_table *table, _Bool deletePermanent) {
@@ -23,7 +23,7 @@ void free_unrolled_table(lua_State *L, lua_unrolled_table *table, _Bool deletePe
         next = table->first;
     }
     table->first = NULL;
-    chfree(table);
+    return_lua_unrolled_table(L, table);
 }
 
 void free_temporary_lua_value(lua_State *L, lua_value *value) {
@@ -70,7 +70,7 @@ void free_lua_value_impl(lua_State *L, lua_value *value, _Bool deletePermanent) 
         default:
             break;
     }
-    chfree(value);
+    return_lua_value(L, value);
 }
 
 void free_temporary_lua_return(lua_State *_L, lua_return retVal, _Bool freeValues) {
@@ -117,9 +117,9 @@ void free_lua_args_impl(lua_State *_L, lua_args args, _Bool freeValues, _Bool de
 lua_result unroll_table(lua_State *_L, lua_value *table) {
     int luaRefVal = table->data.luaRefVal;
     lua_result retVal;
-    lua_unrolled_table *unrolled = chmalloc(sizeof(lua_unrolled_table));
+    lua_unrolled_table *unrolled = make_lua_unrolled_table(_L);
     retVal.err = NULL;
-    retVal.value = chmalloc(sizeof(lua_value));
+    retVal.value = make_lua_value(_L);
     retVal.value->valueType = LUA_TUNROLLEDTABLE;
     retVal.value->data.pointerVal = NULL;
     retVal.value->temporary = 0;
@@ -177,7 +177,7 @@ lua_result unroll_table(lua_State *_L, lua_value *table) {
             return retVal;
         }
 
-        lua_table_entry *entry = chmalloc(sizeof(lua_table_entry));
+        lua_table_entry *entry = make_lua_table_entry(_L);
 
         //We should increment the array count or hash count
         if (key.value->valueType == LUA_TNUMBER) {
@@ -236,7 +236,7 @@ lua_result convert_stack_value_impl(lua_State *L, _Bool suppressPop) {
         return retVal;
     }
 
-    retVal.value = chmalloc(sizeof(lua_value));
+    retVal.value = make_lua_value(L);
     retVal.value->valueType = type;
     retVal.value->dataArg.isCFunction = 0;
     retVal.value->data.pointerVal = 0;
@@ -422,8 +422,8 @@ lua_err *push_lua_return(lua_State *_L, lua_return retVal) {
     return NULL;
 }
 
-lua_unrolled_table *build_unrolled_table(int entries) {
-    lua_unrolled_table *table = chmalloc(sizeof(lua_unrolled_table));
+lua_unrolled_table *build_unrolled_table(lua_State *L, int entries) {
+    lua_unrolled_table *table = make_lua_unrolled_table(L);
     table->first = NULL;
     table->last = NULL;
     table->arraySize = 0;
@@ -431,9 +431,9 @@ lua_unrolled_table *build_unrolled_table(int entries) {
 
     lua_table_entry *entry = NULL;
     for (int i = 0; i < entries; i++) {
-        entry = chmalloc(sizeof(lua_table_entry));
-        entry->key = chmalloc(sizeof(lua_value));
-        entry->value = chmalloc(sizeof(lua_value));
+        entry = make_lua_table_entry(L);
+        entry->key = make_lua_value(L);
+        entry->value = make_lua_value(L);
         entry->next = NULL;
 
         if (table->first == NULL) {
@@ -448,10 +448,10 @@ lua_unrolled_table *build_unrolled_table(int entries) {
     return table;
 }
 
-lua_value **build_values(int slots, int allocs) {
+lua_value **build_values(lua_State *_L, int slots, int allocs) {
     lua_value** valueList = chmalloc(sizeof(lua_value*)*slots);
     for (int i = 0; i < allocs; i++) {
-        valueList[i] = chmalloc(sizeof(lua_value));
+        valueList[i] = make_lua_value(_L);
     }
     return valueList;
 }

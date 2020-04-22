@@ -19,5 +19,12 @@ lua_State *new_luajit_state() {
 	lua_settable(_L,-3);
 	lua_pop(_L,1);
 
+	init_pools(_L);
+
 	return _L;
+}
+
+void close_lua(lua_State *_L) {
+    free_pools(_L);
+    lua_close(_L);
 }

@@ -28,7 +28,7 @@ func NewState() *LuaState {
 
 func (s *LuaState) Close() error {
 	delete(vmMap, s._l)
-	C.lua_close(s._l)
+	C.close_lua(s._l)
 	return nil
 }
 

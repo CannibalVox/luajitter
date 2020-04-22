@@ -15,7 +15,10 @@ func closeVM(t *testing.T, vm *LuaState) {
 func TestSimpleGlobal(t *testing.T) {
 	clearAllocs()
 	vm := NewState()
-	defer closeVM(t, vm)
+	defer func() {
+		closeVM(t, vm)
+		require.Equal(t, 0, outlyingAllocs())
+	}()
 
 	err := vm.SetGlobal("wow", 2)
 	require.Nil(t, err)
@@ -27,14 +30,15 @@ func TestSimpleGlobal(t *testing.T) {
 	number, ok := val.(float64)
 	require.True(t, ok)
 	require.Equal(t, 2.0, number)
-
-	require.Equal(t, 0, outlyingAllocs())
 }
 
 func TestInitGlobal(t *testing.T) {
 	clearAllocs()
 	vm := NewState()
-	defer closeVM(t, vm)
+	defer func() {
+		closeVM(t, vm)
+		require.Equal(t, 0, outlyingAllocs())
+	}()
 
 	err := vm.InitGlobal("test.test2.test3", "value")
 	require.Nil(t, err)
@@ -56,14 +60,15 @@ func TestInitGlobal(t *testing.T) {
 
 	err = table.Close()
 	require.Nil(t, err)
-
-	require.Equal(t, 0, outlyingAllocs())
 }
 
 func TestIsYieldable(t *testing.T) {
 	clearAllocs()
 	vm := NewState()
-	defer closeVM(t, vm)
+	defer func() {
+		closeVM(t, vm)
+		require.Equal(t, 0, outlyingAllocs())
+	}()
 
 	err := vm.DoString(`
 	function canyield()
@@ -81,14 +86,15 @@ func TestIsYieldable(t *testing.T) {
 
 	err = f.Close()
 	require.Nil(t, err)
-
-	require.Equal(t, 0, outlyingAllocs())
 }
 
 func TestInitGlobalNumIndex(t *testing.T) {
 	clearAllocs()
 	vm := NewState()
-	defer closeVM(t, vm)
+	defer func() {
+		closeVM(t, vm)
+		require.Equal(t, 0, outlyingAllocs())
+	}()
 
 	err := vm.InitGlobal("test.test2.1", "This ")
 	require.Nil(t, err)
@@ -112,8 +118,6 @@ func TestInitGlobalNumIndex(t *testing.T) {
 	require.Equal(t, "This is good", outVal[0])
 	err = f.Close()
 	require.Nil(t, err)
-
-	require.Equal(t, 0, outlyingAllocs())
 }
 
 const fibo string = `
@@ -131,7 +135,10 @@ print(fib(5))
 func TestDoStringAndCall(t *testing.T) {
 	clearAllocs()
 	vm := NewState()
-	defer closeVM(t, vm)
+	defer func() {
+		closeVM(t, vm)
+		require.Equal(t, 0, outlyingAllocs())
+	}()
 
 	err := vm.DoString(fibo)
 	require.Nil(t, err)
@@ -156,8 +163,6 @@ func TestDoStringAndCall(t *testing.T) {
 
 	err = fibFunc.Close()
 	require.Nil(t, err)
-
-	require.Equal(t, 0, outlyingAllocs())
 }
 
 const multiRet string = `
@@ -169,7 +174,10 @@ end
 func TestMultiRetCall(t *testing.T) {
 	clearAllocs()
 	vm := NewState()
-	defer closeVM(t, vm)
+	defer func() {
+		closeVM(t, vm)
+		require.Equal(t, 0, outlyingAllocs())
+	}()
 
 	require := require.New(t)
 
@@ -194,14 +202,15 @@ func TestMultiRetCall(t *testing.T) {
 
 	err = multiCallFunc.Close()
 	require.Nil(err)
-
-	require.Equal(0, outlyingAllocs())
 }
 
 func TestDoStringAndCallNil(t *testing.T) {
 	clearAllocs()
 	vm := NewState()
-	defer closeVM(t, vm)
+	defer func() {
+		closeVM(t, vm)
+		require.Equal(t, 0, outlyingAllocs())
+	}()
 
 	err := vm.DoString("function retNil() return nil end")
 	require.Nil(t, err)
@@ -222,26 +231,28 @@ func TestDoStringAndCallNil(t *testing.T) {
 
 	err = fibFunc.Close()
 	require.Nil(t, err)
-
-	require.Equal(t, 0, outlyingAllocs())
 }
 
 func TestDoStringWithError(t *testing.T) {
 	clearAllocs()
 	vm := NewState()
-	defer closeVM(t, vm)
+	defer func() {
+		closeVM(t, vm)
+		require.Equal(t, 0, outlyingAllocs())
+	}()
 
 	err := vm.DoString(`error("some error")`)
 	require.NotNil(t, err)
 	require.Contains(t, err.Error(), "some error")
-
-	require.Equal(t, 0, outlyingAllocs())
 }
 
 func TestDoCallWithError(t *testing.T) {
 	clearAllocs()
 	vm := NewState()
-	defer closeVM(t, vm)
+	defer func() {
+		closeVM(t, vm)
+		require.Equal(t, 0, outlyingAllocs())
+	}()
 
 	err := vm.DoString(`function errcall(msg) error(msg) end`)
 	require.Nil(t, err)
@@ -261,8 +272,6 @@ func TestDoCallWithError(t *testing.T) {
 
 	err = fibFunc.Close()
 	require.Nil(t, err)
-
-	require.Equal(t, 0, outlyingAllocs())
 }
 
 var callbackArgs []interface{}
@@ -280,7 +289,10 @@ func TestDoErrorCallback(t *testing.T) {
 	require := require.New(t)
 	clearAllocs()
 	vm := NewState()
-	defer closeVM(t, vm)
+	defer func() {
+		closeVM(t, vm)
+		require.Equal(0, outlyingAllocs())
+	}()
 
 	err := vm.InitGlobal("test.error_callback", SomeErrorCallback)
 	require.Nil(err)
@@ -318,8 +330,6 @@ end
 
 	err = errorF.Close()
 	require.Nil(err)
-
-	require.Equal(0, outlyingAllocs())
 }
 
 func SomeCallback(args []interface{}) ([]interface{}, error) {

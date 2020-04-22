@@ -55,7 +55,7 @@ func callbackGoFunction(_L *C.lua_State, handle unsafe.Pointer, args C.lua_args,
 
 	ret.err = nil
 	ret.valueCount = C.int(len(retVals))
-	ret.values = C.build_values(ret.valueCount, C.int(createValues))
+	ret.values = C.build_values(_L, ret.valueCount, C.int(createValues))
 	allValues := (*[1 << 30]*C.struct_lua_value)(unsafe.Pointer(ret.values))
 
 	//We have N allocated values for M slots, but we need to make sure the right slots are populated

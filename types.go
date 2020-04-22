@@ -22,10 +22,6 @@ func clearAllocs() {
 var luaValueSize C.size_t = C.size_t(unsafe.Sizeof(C.lua_value{}))
 var luaReturnSize C.size_t = C.size_t(unsafe.Sizeof(C.lua_return{}))
 
-func createLuaValue() *C.struct_lua_value {
-	return (*C.struct_lua_value)(C.chmalloc(luaValueSize))
-}
-
 func fromGoValue(vm *LuaState, value interface{}, outValue *C.struct_lua_value) (cValue *C.struct_lua_value, err error) {
 	if value == nil {
 		return nil, nil
@@ -53,7 +49,7 @@ func fromGoValue(vm *LuaState, value interface{}, outValue *C.struct_lua_value) 
 			castV = float64(innerV)
 		}
 		if outValue == nil {
-			outValue = createLuaValue()
+			outValue = C.make_lua_value(vm._l)
 		}
 		outValue.temporary = C._Bool(true)
 		outValue.valueType = C.LUA_TNUMBER
@@ -61,7 +57,7 @@ func fromGoValue(vm *LuaState, value interface{}, outValue *C.struct_lua_value) 
 		*valData = C.double(castV)
 	case bool:
 		if outValue == nil {
-			outValue = createLuaValue()
+			outValue = C.make_lua_value(vm._l)
 		}
 
 		outValue.temporary = C._Bool(true)
@@ -70,7 +66,7 @@ func fromGoValue(vm *LuaState, value interface{}, outValue *C.struct_lua_value) 
 		*valData = C._Bool(v)
 	case string:
 		if outValue == nil {
-			outValue = createLuaValue()
+			outValue = C.make_lua_value(vm._l)
 		}
 
 		outValue.temporary = C._Bool(true)
@@ -91,7 +87,7 @@ func fromGoValue(vm *LuaState, value interface{}, outValue *C.struct_lua_value) 
 		outValue = castV.LuaValue()
 	case func([]interface{}) ([]interface{}, error):
 		if outValue == nil {
-			outValue = createLuaValue()
+			outValue = C.make_lua_value(vm._l)
 		}
 
 		outValue.temporary = C._Bool(true)
@@ -102,13 +98,13 @@ func fromGoValue(vm *LuaState, value interface{}, outValue *C.struct_lua_value) 
 		*valData = ptr
 	case map[interface{}]interface{}:
 		if outValue == nil {
-			outValue = createLuaValue()
+			outValue = C.make_lua_value(vm._l)
 		}
 
 		outValue.temporary = C._Bool(true)
 		outValue.valueType = C.LUA_TUNROLLEDTABLE
 		valData := (*unsafe.Pointer)(unsafe.Pointer(&outValue.data))
-		table := C.build_unrolled_table(C.int(len(v)))
+		table := C.build_unrolled_table(vm._l, C.int(len(v)))
 		*valData = unsafe.Pointer(table)
 
 		entry := table.first
